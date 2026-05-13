@@ -1,0 +1,51 @@
+[package]
+name = "jatin-lean"
+version = "0.1.0"
+edition = "2021"
+description = "A high-performance CLI utility to prune non-essential files from node_modules, reducing disk footprint by up to 50% without breaking runtime dependencies."
+authors = ["Jatin Jalandhra"]
+license = "MIT"
+
+[dependencies]
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+# Parallel file walking (respects .gitignore, OS-level cache optimized)
+ignore = "0.4"
+
+# Progress bars & spinners
+indicatif = "0.17"
+
+# Colored terminal output
+console = "0.15"
+
+# JSON parsing (for package.json)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Regex for require() / import scanning
+regex = "1"
+
+# Parallelism
+rayon = "1.10"
+
+# Error handling
+anyhow = "1"
+
+# Human-readable file sizes
+humansize = "2"
+
+# Table formatting for --global mode
+comfy-table = "7"
+
+# Time formatting
+chrono = "0.4"
+
+# TOML for rules configuration
+toml = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

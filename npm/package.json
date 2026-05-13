@@ -1,0 +1,52 @@
+{
+  "name": "jatin-lean",
+  "version": "0.1.0",
+  "description": "A high-performance CLI utility to prune non-essential files from node_modules, reducing disk footprint by up to 50% without breaking runtime dependencies.",
+  "main": "index.js",
+  "bin": {
+    "jatin-lean": "bin/jatin-lean.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js",
+    "test": "node bin/jatin-lean.js --help"
+  },
+  "keywords": [
+    "node_modules",
+    "cleanup",
+    "prune",
+    "disk-space",
+    "optimization",
+    "npm",
+    "dependencies",
+    "cli"
+  ],
+  "author": "Jatin Jalandhra",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/jatin-lean.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/jatin-lean/issues"
+  },
+  "homepage": "https://github.com/your-username/jatin-lean#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "bin/",
+    "install.js",
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ]
+}

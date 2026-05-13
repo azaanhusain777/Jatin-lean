@@ -1,0 +1,8 @@
+# Don't include these in the published package
+node_modules/
+.git/
+.gitignore
+*.log
+test/
+tests/
+.DS_Store
