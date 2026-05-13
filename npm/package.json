@@ -1,6 +1,6 @@
 {
   "name": "jatin-lean",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A high-performance CLI utility to prune non-essential files from node_modules, reducing disk footprint by up to 50% without breaking runtime dependencies.",
   "main": "index.js",
   "bin": {
