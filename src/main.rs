@@ -8,13 +8,12 @@ mod display;
 mod rules;
 mod scanner;
 mod tracer;
-mod config;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use console::style;
 use dialoguer::Confirm;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// ⚡ jatin-lean — Prune non-essential files from node_modules
 #[derive(Parser, Debug)]
@@ -41,10 +40,6 @@ struct Cli {
     #[arg(long, value_name = "FILE")]
     config: Option<PathBuf>,
 
-    /// Generate sample config file
-    #[arg(long)]
-    generate_config: bool,
-
     /// Global mode — scan all projects in a directory
     #[arg(long, short = 'g')]
     global: bool,
@@ -56,10 +51,6 @@ struct Cli {
     /// Maximum depth for global scan
     #[arg(long, default_value = "4")]
     max_depth: usize,
-
-    /// Path to custom config file (rules.toml)
-    #[arg(long, value_name = "FILE")]
-    config: Option<PathBuf>,
 
     /// Generate example config file
     #[arg(long, value_name = "FILE")]
@@ -123,8 +114,8 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
     }
 
     // Load configuration
-    let config = config::Config::load(config_path)?;
-    if let Some(ref cfg) = config {
+    let config = config::Config::load(config_path, project_path)?;
+    if let Some(ref _cfg) = config {
         let source = if config_path.is_some() {
             "custom config"
         } else if Path::new("./jatin-lean.toml").exists() {

@@ -56,29 +56,29 @@ impl FileCategory {
 /// File patterns organized by category.
 pub struct PruneRules {
     /// Documentation file patterns (checked by filename)
-    pub doc_files: Vec<&'static str>,
+    pub doc_files: Vec<String>,
     /// Documentation directories
-    pub doc_dirs: Vec<&'static str>,
+    pub doc_dirs: Vec<String>,
     /// Test directories
-    pub test_dirs: Vec<&'static str>,
+    pub test_dirs: Vec<String>,
     /// Test file extensions/patterns (regex)
     pub test_file_regex: RegexSet,
     /// Build artifact extensions
-    pub build_extensions: Vec<&'static str>,
+    pub build_extensions: Vec<String>,
     /// Build artifact filenames
-    pub build_files: Vec<&'static str>,
+    pub build_files: Vec<String>,
     /// Build artifact directories
-    pub build_dirs: Vec<&'static str>,
+    pub build_dirs: Vec<String>,
     /// Source map extensions
-    pub map_extensions: Vec<&'static str>,
+    pub map_extensions: Vec<String>,
     /// CI/CD config files
-    pub ci_files: Vec<&'static str>,
+    pub ci_files: Vec<String>,
     /// CI/CD directories
-    pub ci_dirs: Vec<&'static str>,
+    pub ci_dirs: Vec<String>,
     /// Example directories
-    pub example_dirs: Vec<&'static str>,
+    pub example_dirs: Vec<String>,
     /// TypeScript source extensions (NOT .d.ts)
-    pub ts_source_extensions: Vec<&'static str>,
+    pub ts_source_extensions: Vec<String>,
 }
 
 impl Default for PruneRules {
@@ -121,8 +121,8 @@ impl PruneRules {
                 "TODO",
                 "NOTICE",
                 "NOTICE.md",
-            ],
-            doc_dirs: vec!["docs", "doc", ".github"],
+            ].into_iter().map(String::from).collect(),
+            doc_dirs: vec!["docs", "doc", ".github"].into_iter().map(String::from).collect(),
 
             // ── Test Assets ───────────────────────────────
             test_dirs: vec![
@@ -138,7 +138,7 @@ impl PruneRules {
                 "test-fixtures",
                 "coverage",
                 ".nyc_output",
-            ],
+            ].into_iter().map(String::from).collect(),
             test_file_regex: RegexSet::new([
                 r"\.test\.[jt]sx?$",
                 r"\.spec\.[jt]sx?$",
@@ -160,7 +160,7 @@ impl PruneRules {
             build_extensions: vec![
                 ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".o", ".obj", ".a", ".lib",
                 ".gyp", ".gypi",
-            ],
+            ].into_iter().map(String::from).collect(),
             build_files: vec![
                 "Makefile",
                 "makefile",
@@ -192,11 +192,11 @@ impl PruneRules {
                 ".editorconfig",
                 ".jshintrc",
                 ".npmignore",
-            ],
-            build_dirs: vec!["build", "obj"],
+            ].into_iter().map(String::from).collect(),
+            build_dirs: vec!["build", "obj"].into_iter().map(String::from).collect(),
 
             // ── Source Maps ───────────────────────────────
-            map_extensions: vec![".js.map", ".css.map", ".mjs.map"],
+            map_extensions: vec![".js.map", ".css.map", ".mjs.map"].into_iter().map(String::from).collect(),
 
             // ── CI/CD Config ──────────────────────────────
             ci_files: vec![
@@ -209,14 +209,14 @@ impl PruneRules {
                 "azure-pipelines.yml",
                 "codecov.yml",
                 ".codecov.yml",
-            ],
-            ci_dirs: vec![".circleci", ".travis"],
+            ].into_iter().map(String::from).collect(),
+            ci_dirs: vec![".circleci", ".travis"].into_iter().map(String::from).collect(),
 
             // ── Examples ──────────────────────────────────
-            example_dirs: vec!["example", "examples", "demo", "demos", "sample", "samples"],
+            example_dirs: vec!["example", "examples", "demo", "demos", "sample", "samples"].into_iter().map(String::from).collect(),
 
             // ── TypeScript Sources ────────────────────────
-            ts_source_extensions: vec![".ts", ".tsx"],
+            ts_source_extensions: vec![".ts", ".tsx"].into_iter().map(String::from).collect(),
         };
         
         // Apply custom config if provided
@@ -224,93 +224,93 @@ impl PruneRules {
             if cfg.override_defaults {
                 // Replace defaults with config
                 if !cfg.doc_files.is_empty() {
-                    rules.doc_files = cfg.doc_files.iter().map(|s| s.as_str()).collect();
+                    rules.doc_files = cfg.doc_files.clone();
                 }
                 if !cfg.doc_dirs.is_empty() {
-                    rules.doc_dirs = cfg.doc_dirs.iter().map(|s| s.as_str()).collect();
+                    rules.doc_dirs = cfg.doc_dirs.clone();
                 }
                 if !cfg.test_dirs.is_empty() {
-                    rules.test_dirs = cfg.test_dirs.iter().map(|s| s.as_str()).collect();
+                    rules.test_dirs = cfg.test_dirs.clone();
                 }
                 if !cfg.build_extensions.is_empty() {
-                    rules.build_extensions = cfg.build_extensions.iter().map(|s| s.as_str()).collect();
+                    rules.build_extensions = cfg.build_extensions.clone();
                 }
                 if !cfg.build_files.is_empty() {
-                    rules.build_files = cfg.build_files.iter().map(|s| s.as_str()).collect();
+                    rules.build_files = cfg.build_files.clone();
                 }
                 if !cfg.build_dirs.is_empty() {
-                    rules.build_dirs = cfg.build_dirs.iter().map(|s| s.as_str()).collect();
+                    rules.build_dirs = cfg.build_dirs.clone();
                 }
                 if !cfg.map_extensions.is_empty() {
-                    rules.map_extensions = cfg.map_extensions.iter().map(|s| s.as_str()).collect();
+                    rules.map_extensions = cfg.map_extensions.clone();
                 }
                 if !cfg.ci_files.is_empty() {
-                    rules.ci_files = cfg.ci_files.iter().map(|s| s.as_str()).collect();
+                    rules.ci_files = cfg.ci_files.clone();
                 }
                 if !cfg.ci_dirs.is_empty() {
-                    rules.ci_dirs = cfg.ci_dirs.iter().map(|s| s.as_str()).collect();
+                    rules.ci_dirs = cfg.ci_dirs.clone();
                 }
                 if !cfg.example_dirs.is_empty() {
-                    rules.example_dirs = cfg.example_dirs.iter().map(|s| s.as_str()).collect();
+                    rules.example_dirs = cfg.example_dirs.clone();
                 }
                 if !cfg.ts_source_extensions.is_empty() {
-                    rules.ts_source_extensions = cfg.ts_source_extensions.iter().map(|s| s.as_str()).collect();
+                    rules.ts_source_extensions = cfg.ts_source_extensions.clone();
                 }
             } else {
                 // Extend defaults with config
                 for item in &cfg.doc_files {
-                    if !rules.doc_files.contains(&item.as_str()) {
-                        rules.doc_files.push(item.as_str());
+                    if !rules.doc_files.contains(item) {
+                        rules.doc_files.push(item.clone());
                     }
                 }
                 for item in &cfg.doc_dirs {
-                    if !rules.doc_dirs.contains(&item.as_str()) {
-                        rules.doc_dirs.push(item.as_str());
+                    if !rules.doc_dirs.contains(item) {
+                        rules.doc_dirs.push(item.clone());
                     }
                 }
                 for item in &cfg.test_dirs {
-                    if !rules.test_dirs.contains(&item.as_str()) {
-                        rules.test_dirs.push(item.as_str());
+                    if !rules.test_dirs.contains(item) {
+                        rules.test_dirs.push(item.clone());
                     }
                 }
                 for item in &cfg.build_extensions {
-                    if !rules.build_extensions.contains(&item.as_str()) {
-                        rules.build_extensions.push(item.as_str());
+                    if !rules.build_extensions.contains(item) {
+                        rules.build_extensions.push(item.clone());
                     }
                 }
                 for item in &cfg.build_files {
-                    if !rules.build_files.contains(&item.as_str()) {
-                        rules.build_files.push(item.as_str());
+                    if !rules.build_files.contains(item) {
+                        rules.build_files.push(item.clone());
                     }
                 }
                 for item in &cfg.build_dirs {
-                    if !rules.build_dirs.contains(&item.as_str()) {
-                        rules.build_dirs.push(item.as_str());
+                    if !rules.build_dirs.contains(item) {
+                        rules.build_dirs.push(item.clone());
                     }
                 }
                 for item in &cfg.map_extensions {
-                    if !rules.map_extensions.contains(&item.as_str()) {
-                        rules.map_extensions.push(item.as_str());
+                    if !rules.map_extensions.contains(item) {
+                        rules.map_extensions.push(item.clone());
                     }
                 }
                 for item in &cfg.ci_files {
-                    if !rules.ci_files.contains(&item.as_str()) {
-                        rules.ci_files.push(item.as_str());
+                    if !rules.ci_files.contains(item) {
+                        rules.ci_files.push(item.clone());
                     }
                 }
                 for item in &cfg.ci_dirs {
-                    if !rules.ci_dirs.contains(&item.as_str()) {
-                        rules.ci_dirs.push(item.as_str());
+                    if !rules.ci_dirs.contains(item) {
+                        rules.ci_dirs.push(item.clone());
                     }
                 }
                 for item in &cfg.example_dirs {
-                    if !rules.example_dirs.contains(&item.as_str()) {
-                        rules.example_dirs.push(item.as_str());
+                    if !rules.example_dirs.contains(item) {
+                        rules.example_dirs.push(item.clone());
                     }
                 }
                 for item in &cfg.ts_source_extensions {
-                    if !rules.ts_source_extensions.contains(&item.as_str()) {
-                        rules.ts_source_extensions.push(item.as_str());
+                    if !rules.ts_source_extensions.contains(item) {
+                        rules.ts_source_extensions.push(item.clone());
                     }
                 }
             }
@@ -345,39 +345,39 @@ impl PruneRules {
         for component in rel_path.components() {
             let dir_name = component.as_os_str().to_str().unwrap_or("");
 
-            if self.test_dirs.contains(&dir_name) {
+            if self.test_dirs.iter().any(|d| d == dir_name) {
                 return Some(FileCategory::TestAsset);
             }
-            if self.doc_dirs.contains(&dir_name) {
+            if self.doc_dirs.iter().any(|d| d == dir_name) {
                 if dir_name == ".github" {
                     return Some(FileCategory::CiConfig);
                 }
                 return Some(FileCategory::Documentation);
             }
-            if self.ci_dirs.contains(&dir_name) {
+            if self.ci_dirs.iter().any(|d| d == dir_name) {
                 return Some(FileCategory::CiConfig);
             }
-            if self.example_dirs.contains(&dir_name) {
+            if self.example_dirs.iter().any(|d| d == dir_name) {
                 return Some(FileCategory::Example);
             }
             // build dirs — but only if not the package root build
-            if self.build_dirs.contains(&dir_name) {
+            if self.build_dirs.iter().any(|d| d == dir_name) {
                 return Some(FileCategory::BuildArtifact);
             }
         }
 
         // ── Check filenames (documentation) ──
-        if self.doc_files.contains(&file_name) {
+        if self.doc_files.iter().any(|f| f == file_name) {
             return Some(FileCategory::Documentation);
         }
 
         // ── Check CI config files ──
-        if self.ci_files.contains(&file_name) {
+        if self.ci_files.iter().any(|f| f == file_name) {
             return Some(FileCategory::CiConfig);
         }
 
         // ── Check build artifact filenames ──
-        if self.build_files.contains(&file_name) {
+        if self.build_files.iter().any(|f| f == file_name) {
             return Some(FileCategory::BuildArtifact);
         }
 

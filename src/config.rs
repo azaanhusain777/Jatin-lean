@@ -5,11 +5,15 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Configuration structure matching rules.toml format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Whether to completely override default rules instead of merging
+    #[serde(default)]
+    pub override_defaults: bool,
+
     /// Documentation file patterns
     #[serde(default)]
     pub doc_files: Vec<String>,
@@ -70,6 +74,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            override_defaults: false,
             doc_files: vec![],
             doc_dirs: vec![],
             test_dirs: vec![],
@@ -159,6 +164,10 @@ impl Config {
     pub fn generate_sample() -> String {
         r#"# jatin-lean configuration file
 # Customize what gets deleted from node_modules
+
+# If true, ignores all built-in rules and only uses the ones defined here.
+# If false, these rules are added to the built-in defaults.
+override_defaults = false
 
 # Documentation files (exact filenames)
 doc_files = [
