@@ -130,7 +130,7 @@ jobs:
         run: |
           cd npm
           VERSION=${GITHUB_REF#refs/tags/v}
-          npm version $VERSION --no-git-tag-version
+          npm version $VERSION --allow-same-version --no-git-tag-version
 
       - name: Publish to npm
         run: |
