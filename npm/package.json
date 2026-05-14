@@ -43,7 +43,7 @@
     "arm64"
   ],
   "files": [
-    "bin/",
+    "bin/jatin-lean.js",
     "install.js",
     "index.js",
     "README.md",

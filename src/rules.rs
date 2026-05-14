@@ -89,7 +89,11 @@ impl Default for PruneRules {
 
 impl PruneRules {
     pub fn new() -> Self {
-        Self {
+        Self::new_with_config(None)
+    }
+    
+    pub fn new_with_config(config: Option<crate::config::Config>) -> Self {
+        let mut rules = Self {
             // ── Documentation ──────────────────────────────
             doc_files: vec![
                 "README.md",
@@ -213,7 +217,106 @@ impl PruneRules {
 
             // ── TypeScript Sources ────────────────────────
             ts_source_extensions: vec![".ts", ".tsx"],
+        };
+        
+        // Apply custom config if provided
+        if let Some(cfg) = config {
+            if cfg.override_defaults {
+                // Replace defaults with config
+                if !cfg.doc_files.is_empty() {
+                    rules.doc_files = cfg.doc_files.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.doc_dirs.is_empty() {
+                    rules.doc_dirs = cfg.doc_dirs.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.test_dirs.is_empty() {
+                    rules.test_dirs = cfg.test_dirs.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.build_extensions.is_empty() {
+                    rules.build_extensions = cfg.build_extensions.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.build_files.is_empty() {
+                    rules.build_files = cfg.build_files.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.build_dirs.is_empty() {
+                    rules.build_dirs = cfg.build_dirs.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.map_extensions.is_empty() {
+                    rules.map_extensions = cfg.map_extensions.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.ci_files.is_empty() {
+                    rules.ci_files = cfg.ci_files.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.ci_dirs.is_empty() {
+                    rules.ci_dirs = cfg.ci_dirs.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.example_dirs.is_empty() {
+                    rules.example_dirs = cfg.example_dirs.iter().map(|s| s.as_str()).collect();
+                }
+                if !cfg.ts_source_extensions.is_empty() {
+                    rules.ts_source_extensions = cfg.ts_source_extensions.iter().map(|s| s.as_str()).collect();
+                }
+            } else {
+                // Extend defaults with config
+                for item in &cfg.doc_files {
+                    if !rules.doc_files.contains(&item.as_str()) {
+                        rules.doc_files.push(item.as_str());
+                    }
+                }
+                for item in &cfg.doc_dirs {
+                    if !rules.doc_dirs.contains(&item.as_str()) {
+                        rules.doc_dirs.push(item.as_str());
+                    }
+                }
+                for item in &cfg.test_dirs {
+                    if !rules.test_dirs.contains(&item.as_str()) {
+                        rules.test_dirs.push(item.as_str());
+                    }
+                }
+                for item in &cfg.build_extensions {
+                    if !rules.build_extensions.contains(&item.as_str()) {
+                        rules.build_extensions.push(item.as_str());
+                    }
+                }
+                for item in &cfg.build_files {
+                    if !rules.build_files.contains(&item.as_str()) {
+                        rules.build_files.push(item.as_str());
+                    }
+                }
+                for item in &cfg.build_dirs {
+                    if !rules.build_dirs.contains(&item.as_str()) {
+                        rules.build_dirs.push(item.as_str());
+                    }
+                }
+                for item in &cfg.map_extensions {
+                    if !rules.map_extensions.contains(&item.as_str()) {
+                        rules.map_extensions.push(item.as_str());
+                    }
+                }
+                for item in &cfg.ci_files {
+                    if !rules.ci_files.contains(&item.as_str()) {
+                        rules.ci_files.push(item.as_str());
+                    }
+                }
+                for item in &cfg.ci_dirs {
+                    if !rules.ci_dirs.contains(&item.as_str()) {
+                        rules.ci_dirs.push(item.as_str());
+                    }
+                }
+                for item in &cfg.example_dirs {
+                    if !rules.example_dirs.contains(&item.as_str()) {
+                        rules.example_dirs.push(item.as_str());
+                    }
+                }
+                for item in &cfg.ts_source_extensions {
+                    if !rules.ts_source_extensions.contains(&item.as_str()) {
+                        rules.ts_source_extensions.push(item.as_str());
+                    }
+                }
+            }
         }
+        
+        rules
     }
 
     /// Classify a file path into a category, or None if it should be kept.

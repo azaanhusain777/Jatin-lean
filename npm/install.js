@@ -11,7 +11,7 @@ const https = require('https');
 const { execSync } = require('child_process');
 
 const PACKAGE_VERSION = require('./package.json').version;
-const BINARY_NAME = 'jatin-lean';
+const BINARY_NAME = 'jatin-lean' + (process.platform === 'win32' ? '.exe' : '');
 
 // Platform-specific binary names
 const PLATFORM_MAP = {
@@ -42,7 +42,7 @@ function getBinaryName() {
 }
 
 function getBinaryPath() {
-  return path.join(__dirname, 'bin', BINARY_NAME + (process.platform === 'win32' ? '.exe' : ''));
+  return path.join(__dirname, 'bin', BINARY_NAME);
 }
 
 function downloadBinary(url, dest) {
@@ -101,20 +101,8 @@ async function install() {
     return;
   }
   
-  // Check if binary is already bundled (for the platform we published from)
-  const bundledBinaryPath = path.join(__dirname, 'bin', BINARY_NAME);
-  if (fs.existsSync(bundledBinaryPath)) {
-    console.log('Using bundled binary...');
-    if (bundledBinaryPath !== binaryPath) {
-      fs.copyFileSync(bundledBinaryPath, binaryPath);
-    }
-    fs.chmodSync(binaryPath, 0o755);
-    console.log('✓ Installation complete!');
-    return;
-  }
-  
   // Download from GitHub releases
-  const downloadUrl = `https://github.com/jatinjalandhra/jatin-lean/releases/download/v${PACKAGE_VERSION}/${binaryName}`;
+  const downloadUrl = `https://github.com/decodejatin/npm-package/releases/download/v${PACKAGE_VERSION}/${binaryName}`;
   
   console.log(`Downloading binary for ${getPlatformKey()}...`);
   
@@ -127,8 +115,8 @@ async function install() {
     console.error(`\nTried to download from: ${downloadUrl}`);
     console.error('\nPlease try one of the following:');
     console.error('1. Check your internet connection');
-    console.error('2. Download manually from: https://github.com/jatinjalandhra/jatin-lean/releases');
-    console.error(`3. Build from source: https://github.com/jatinjalandhra/jatin-lean#building-from-source`);
+    console.error('2. Download manually from: https://github.com/decodejatin/npm-package/releases');
+    console.error(`3. Build from source: https://github.com/decodejatin/npm-package#building-from-source`);
     process.exit(1);
   }
 }

@@ -21,18 +21,20 @@ function runBinary() {
     process.exit(1);
   }
 
-  // Check if binary is executable
-  try {
-    fs.accessSync(BINARY_PATH, fs.constants.X_OK);
-  } catch (error) {
-    console.error('Error: Binary is not executable.');
-    console.error('Attempting to fix permissions...');
+  // Check if binary is executable (skip on Windows)
+  if (process.platform !== 'win32') {
     try {
-      fs.chmodSync(BINARY_PATH, 0o755);
-      console.log('✓ Permissions fixed.');
-    } catch (chmodError) {
-      console.error('Failed to fix permissions:', chmodError.message);
-      process.exit(1);
+      fs.accessSync(BINARY_PATH, fs.constants.X_OK);
+    } catch (error) {
+      console.error('Error: Binary is not executable.');
+      console.error('Attempting to fix permissions...');
+      try {
+        fs.chmodSync(BINARY_PATH, 0o755);
+        console.log('✓ Permissions fixed.');
+      } catch (chmodError) {
+        console.error('Failed to fix permissions:', chmodError.message);
+        process.exit(1);
+      }
     }
   }
 

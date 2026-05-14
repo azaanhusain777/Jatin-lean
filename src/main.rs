@@ -2,15 +2,18 @@
 //! files from node_modules, reducing disk footprint by up to 50%
 //! without breaking runtime dependencies.
 
+mod config;
 mod deleter;
 mod display;
 mod rules;
 mod scanner;
 mod tracer;
+mod config;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use console::style;
+use dialoguer::Confirm;
 use std::path::PathBuf;
 
 /// ⚡ jatin-lean — Prune non-essential files from node_modules
@@ -19,7 +22,7 @@ use std::path::PathBuf;
     name = "jatin-lean",
     version,
     about = "A high-performance CLI utility to prune non-essential files from node_modules",
-    long_about = "Slim your node_modules by up to 50% without breaking runtime dependencies.\n\nBy default, runs in dry-run mode showing what would be deleted.\nUse --force to execute deletion."
+    long_about = "Slim your node_modules by up to 50% without breaking runtime dependencies.\n\nBy default, runs in dry-run mode showing what would be deleted.\nUse --force to execute deletion (will prompt for confirmation).\nUse --force --yes to skip the confirmation prompt."
 )]
 struct Cli {
     /// Path to the project directory (defaults to current directory)
@@ -30,9 +33,17 @@ struct Cli {
     #[arg(long, short = 'f')]
     force: bool,
 
-    /// Dry run — show what would be deleted without deleting
-    #[arg(long, short = 'd')]
-    dry_run: bool,
+    /// Skip confirmation prompt (auto-confirm)
+    #[arg(long, short = 'y')]
+    yes: bool,
+
+    /// Path to custom config file
+    #[arg(long, value_name = "FILE")]
+    config: Option<PathBuf>,
+
+    /// Generate sample config file
+    #[arg(long)]
+    generate_config: bool,
 
     /// Global mode — scan all projects in a directory
     #[arg(long, short = 'g')]
@@ -45,10 +56,39 @@ struct Cli {
     /// Maximum depth for global scan
     #[arg(long, default_value = "4")]
     max_depth: usize,
+
+    /// Path to custom config file (rules.toml)
+    #[arg(long, value_name = "FILE")]
+    config: Option<PathBuf>,
+
+    /// Generate example config file
+    #[arg(long, value_name = "FILE")]
+    init_config: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    // Handle --init-config flag
+    if let Some(config_path) = cli.init_config {
+        config::Config::create_example(&config_path)?;
+        println!(
+            "  {} Example config file created: {}",
+            style("✓").green().bold(),
+            style(config_path.display()).cyan()
+        );
+        println!(
+            "  {} Edit this file to customize pruning rules.",
+            style("→").dim()
+        );
+        println!(
+            "  {} Use with: {} {}",
+            style("→").dim(),
+            style("jatin-lean --config").yellow(),
+            style(config_path.display()).cyan()
+        );
+        return Ok(());
+    }
 
     display::print_banner();
 
@@ -58,14 +98,14 @@ fn main() -> Result<()> {
     if cli.global {
         run_global_mode(&target, cli.max_depth)?;
     } else {
-        run_local_mode(&target, cli.force, cli.verbose)?;
+        run_local_mode(&target, cli.force, cli.yes, cli.verbose, cli.config.as_deref())?;
     }
 
     Ok(())
 }
 
 /// Run in local mode — scan a single project's node_modules.
-fn run_local_mode(project_path: &PathBuf, force: bool, verbose: bool) -> Result<()> {
+fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool, config_path: Option<&Path>) -> Result<()> {
     // Find node_modules
     let nm_path = project_path.join("node_modules");
     if !nm_path.exists() {
@@ -82,8 +122,26 @@ fn run_local_mode(project_path: &PathBuf, force: bool, verbose: bool) -> Result<
         return Ok(());
     }
 
+    // Load configuration
+    let config = config::Config::load(config_path)?;
+    if let Some(ref cfg) = config {
+        let source = if config_path.is_some() {
+            "custom config"
+        } else if Path::new("./jatin-lean.toml").exists() {
+            "./jatin-lean.toml"
+        } else {
+            "~/.config/jatin-lean/rules.toml"
+        };
+        println!(
+            "  {} Using {} {}",
+            style("◉").cyan(),
+            style("custom rules from").dim(),
+            style(source).cyan()
+        );
+    }
+
     // Phase 1: Discovery
-    let rules = rules::PruneRules::new();
+    let rules = rules::PruneRules::new_with_config(config);
     let scan_result = scanner::scan_node_modules(&nm_path, &rules)
         .context("Failed to scan node_modules")?;
 
@@ -160,6 +218,55 @@ fn run_local_mode(project_path: &PathBuf, force: bool, verbose: bool) -> Result<
 
     // Phase 3 or 4
     if force {
+        // Interactive confirmation (unless --yes flag is used)
+        if !yes {
+            println!(
+                "  {} {}",
+                style("Phase 3: Confirmation").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+            );
+            
+            let savings = filtered_result.savings();
+            let pct = if filtered_result.total_size > 0 {
+                (savings as f64 / filtered_result.total_size as f64 * 100.0) as u64
+            } else {
+                0
+            };
+            
+            println!(
+                "  {} About to delete {} ({} files, {}% of node_modules)",
+                style("⚠").yellow().bold(),
+                style(scanner::format_size(savings)).yellow().bold(),
+                style(scanner::format_number(filtered_result.candidates.len() as u64)).yellow(),
+                style(pct).yellow()
+            );
+            
+            println!();
+            
+            let confirmed = Confirm::new()
+                .with_prompt("  Do you want to proceed with deletion?")
+                .default(false)
+                .interact()
+                .unwrap_or(false);
+            
+            if !confirmed {
+                println!();
+                println!(
+                    "  {} Deletion cancelled. No files were deleted.",
+                    style("✓").green().bold()
+                );
+                println!(
+                    "  {} Run with {} to skip this prompt next time.",
+                    style("→").dim(),
+                    style("--yes").yellow()
+                );
+                println!();
+                return Ok(());
+            }
+            
+            println!();
+        }
+        
         // Phase 4: Execute
         println!(
             "  {} {}",

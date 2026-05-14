@@ -6,3 +6,5 @@ node_modules/
 test/
 tests/
 .DS_Store
+bin/jatin-lean
+bin/jatin-lean.exe
