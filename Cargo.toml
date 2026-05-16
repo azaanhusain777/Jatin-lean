@@ -71,6 +71,21 @@ dirs = "5.0"
 # Low-level OS interface (mmap, syscalls, process stats)
 libc = "0.2"
 
+# Zero-copy serialization for high-performance caching
+rkyv = { version = "0.7", features = ["validation"] }
+
+# Memory mapping for zero-copy file access
+memmap2 = "0.9"
+
+# Lock-free data structures
+crossbeam = "0.8"
+
+# Machine hostname detection (for distributed cache)
+hostname = "0.4"
+
+# CPU core count detection
+num_cpus = "1.16"
+
 [profile.release]
 opt-level = 3
 lto = true
