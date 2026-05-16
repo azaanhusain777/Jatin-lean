@@ -253,3 +253,145 @@ pub fn print_banner() {
     );
     println!();
 }
+
+/// Print enhanced performance metrics dashboard (Step 14).
+pub fn print_performance_dashboard(metrics: &crate::profiler::PerformanceMetrics) {
+    println!();
+    println!(
+        "  {} {}",
+        style("Performance Dashboard").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+
+    // Throughput metrics
+    println!();
+    println!(
+        "  {} {}",
+        style("Throughput").white().bold(),
+        style("─────────────────────────────").dim()
+    );
+    println!(
+        "  {} Files/sec: {}",
+        style("⚡").yellow(),
+        style(format!("{:.0}", metrics.files_per_second)).green().bold(),
+    );
+    println!(
+        "  {} MB/sec: {}",
+        style("⚡").yellow(),
+        style(format!("{:.2}", metrics.bytes_per_second / 1_000_000.0)).green().bold(),
+    );
+    println!(
+        "  {} Packages: {} at {}/pkg avg",
+        style("📦").dim(),
+        style(metrics.packages_scanned).white().bold(),
+        style(crate::profiler::format_duration(metrics.avg_time_per_package)).dim(),
+    );
+
+    // Phase breakdown
+    println!();
+    println!(
+        "  {} {}",
+        style("Phase Breakdown").white().bold(),
+        style("─────────────────────────────").dim()
+    );
+
+    let phases = [
+        ("Discovery", metrics.phase_breakdown.discovery),
+        ("Parsing", metrics.phase_breakdown.parsing),
+        ("Walking", metrics.phase_breakdown.walking),
+        ("Classification", metrics.phase_breakdown.classification),
+        ("Tracing", metrics.phase_breakdown.tracing),
+        ("Deletion", metrics.phase_breakdown.deletion),
+    ];
+
+    let total_ms = metrics.total_duration.as_millis().max(1) as f64;
+
+    for (name, duration) in &phases {
+        let ms = duration.as_millis() as f64;
+        let pct = (ms / total_ms * 100.0) as u64;
+        let bar_len = (pct as usize).min(30);
+        let bar: String = "█".repeat(bar_len);
+        let pad: String = "░".repeat(30 - bar_len);
+
+        println!(
+            "  {} {:15} {} {}{}  {}",
+            style("▸").dim(),
+            name,
+            style(crate::profiler::format_duration(*duration)).cyan(),
+            style(&bar).green(),
+            style(&pad).dim(),
+            style(format!("{}%", pct)).dim(),
+        );
+    }
+
+    // Bottleneck analysis
+    if !metrics.bottlenecks.is_empty() {
+        println!();
+        println!(
+            "  {} {}",
+            style("Bottlenecks").yellow().bold(),
+            style("─────────────────────────────").dim()
+        );
+
+        for bottleneck in metrics.bottlenecks.iter().take(5) {
+            let severity_bar = match bottleneck.severity {
+                1..=3 => style("▪▪▪░░░░░░░").green(),
+                4..=6 => style("▪▪▪▪▪▪░░░░").yellow(),
+                7..=8 => style("▪▪▪▪▪▪▪▪░░").red(),
+                _ => style("▪▪▪▪▪▪▪▪▪▪").red().bold(),
+            };
+
+            println!(
+                "  {} {} [{}] {}  {}",
+                severity_bar,
+                style(&bottleneck.name).yellow(),
+                &bottleneck.operation,
+                style(crate::profiler::format_duration(bottleneck.duration)).cyan(),
+                style(&bottleneck.reason).dim(),
+            );
+        }
+
+        // Optimization suggestions
+        println!();
+        println!(
+            "  {} {}",
+            style("Suggestions").white().bold(),
+            style("─────────────────────────────").dim()
+        );
+
+        let io_pct = metrics.phase_breakdown.io_time.as_millis() as f64 / total_ms * 100.0;
+        if io_pct > 50.0 {
+            println!(
+                "  {} I/O bound ({:.0}% in I/O) — consider SSD or memory-mapped cache",
+                style("💡").yellow(),
+                io_pct,
+            );
+        }
+
+        if metrics.packages_scanned > 200 {
+            println!(
+                "  {} Large project ({} packages) — enable distributed cache for faster re-scans",
+                style("💡").yellow(),
+                metrics.packages_scanned,
+            );
+        }
+
+        if metrics.bottlenecks.iter().any(|b| b.severity >= 8) {
+            println!(
+                "  {} Critical bottlenecks detected — consider using {} for targeted pruning",
+                style("💡").yellow(),
+                style("--config").cyan(),
+            );
+        }
+
+        if metrics.avg_time_per_package > std::time::Duration::from_millis(50) {
+            println!(
+                "  {} Slow per-package scanning — enable adaptive strategy with {} for speedup",
+                style("💡").yellow(),
+                style("--profile").cyan(),
+            );
+        }
+    }
+
+    println!();
+}
