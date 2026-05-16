@@ -20,7 +20,10 @@ pub fn execute_deletion(candidates: &[PruneCandidate]) -> Result<DeletionResult>
     let start = Instant::now();
     let mut by_package: HashMap<String, Vec<&PruneCandidate>> = HashMap::new();
     for c in candidates {
-        by_package.entry(c.package_name.clone()).or_default().push(c);
+        by_package
+            .entry(c.package_name.clone())
+            .or_default()
+            .push(c);
     }
 
     let total_size: u64 = candidates.iter().map(|c| c.size).sum();
@@ -87,7 +90,9 @@ pub fn print_deletion_summary(result: &DeletionResult) {
     println!(
         "  {} Deleted {} ({} files) in {:.1}s",
         console::style("✓").green().bold(),
-        console::style(format_size(result.deleted_size)).green().bold(),
+        console::style(format_size(result.deleted_size))
+            .green()
+            .bold(),
         format_number(result.deleted_count),
         result.duration.as_secs_f64()
     );
@@ -98,10 +103,19 @@ pub fn print_deletion_summary(result: &DeletionResult) {
             result.failures.len()
         );
         for (path, err) in result.failures.iter().take(5) {
-            println!("    {} {} — {}", console::style("→").dim(), path.display(), err);
+            println!(
+                "    {} {} — {}",
+                console::style("→").dim(),
+                path.display(),
+                err
+            );
         }
         if result.failures.len() > 5 {
-            println!("    {} ...and {} more", console::style("→").dim(), result.failures.len() - 5);
+            println!(
+                "    {} ...and {} more",
+                console::style("→").dim(),
+                result.failures.len() - 5
+            );
         }
     }
     println!(

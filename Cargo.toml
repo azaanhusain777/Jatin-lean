@@ -1,10 +1,34 @@
 [package]
 name = "jatin-lean"
-version = "0.1.6"
+version = "0.3.0"
 edition = "2021"
-description = "A high-performance CLI utility to prune non-essential files from node_modules, reducing disk footprint by up to 50% without breaking runtime dependencies."
+description = "A high-performance CLI utility to prune, analyze, and optimize node_modules — featuring SIMD-accelerated scanning, memory-mapped I/O, duplicate detection, dependency graph analysis, snapshot/undo, watch mode, analytics, policy enforcement, and multi-format reporting."
 authors = ["Jatin Jalandhra"]
 license = "MIT"
+repository = "https://github.com/decodejatin/jatin-lean"
+homepage = "https://github.com/decodejatin/jatin-lean"
+documentation = "https://github.com/decodejatin/jatin-lean#readme"
+readme = "README.md"
+keywords = ["node_modules", "cleanup", "prune", "optimization", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    "npm/",
+    "scripts/",
+    "test-install/",
+    "dist/",
+    ".github/",
+    "*.md",
+    "!README.md",
+    "!LICENSE"
+]
+
+[[bin]]
+name = "jatin-lean"
+path = "src/main.rs"
+
+[lib]
+name = "jatin_lean"
+path = "src/lib.rs"
 
 [dependencies]
 # CLI argument parsing
@@ -32,14 +56,8 @@ rayon = "1.10"
 # Error handling
 anyhow = "1"
 
-# Human-readable file sizes
-humansize = "2"
-
 # Table formatting for --global mode
 comfy-table = "7"
-
-# Time formatting
-chrono = "0.4"
 
 # TOML for rules configuration
 toml = "0.8"
@@ -50,8 +68,15 @@ dialoguer = "0.11"
 # Home directory detection
 dirs = "5.0"
 
+# Low-level OS interface (mmap, syscalls, process stats)
+libc = "0.2"
+
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+[dev-dependencies]
+tempfile = "3"
+

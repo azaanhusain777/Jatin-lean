@@ -91,7 +91,7 @@ impl PruneRules {
     pub fn new() -> Self {
         Self::new_with_config(None)
     }
-    
+
     pub fn new_with_config(config: Option<crate::config::Config>) -> Self {
         let mut rules = Self {
             // ── Documentation ──────────────────────────────
@@ -121,8 +121,14 @@ impl PruneRules {
                 "TODO",
                 "NOTICE",
                 "NOTICE.md",
-            ].into_iter().map(String::from).collect(),
-            doc_dirs: vec!["docs", "doc", ".github"].into_iter().map(String::from).collect(),
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            doc_dirs: vec!["docs", "doc", ".github"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
 
             // ── Test Assets ───────────────────────────────
             test_dirs: vec![
@@ -138,7 +144,10 @@ impl PruneRules {
                 "test-fixtures",
                 "coverage",
                 ".nyc_output",
-            ].into_iter().map(String::from).collect(),
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             test_file_regex: RegexSet::new([
                 r"\.test\.[jt]sx?$",
                 r"\.spec\.[jt]sx?$",
@@ -160,7 +169,10 @@ impl PruneRules {
             build_extensions: vec![
                 ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".o", ".obj", ".a", ".lib",
                 ".gyp", ".gypi",
-            ].into_iter().map(String::from).collect(),
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             build_files: vec![
                 "Makefile",
                 "makefile",
@@ -192,11 +204,17 @@ impl PruneRules {
                 ".editorconfig",
                 ".jshintrc",
                 ".npmignore",
-            ].into_iter().map(String::from).collect(),
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             build_dirs: vec!["build", "obj"].into_iter().map(String::from).collect(),
 
             // ── Source Maps ───────────────────────────────
-            map_extensions: vec![".js.map", ".css.map", ".mjs.map"].into_iter().map(String::from).collect(),
+            map_extensions: vec![".js.map", ".css.map", ".mjs.map"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
 
             // ── CI/CD Config ──────────────────────────────
             ci_files: vec![
@@ -209,16 +227,25 @@ impl PruneRules {
                 "azure-pipelines.yml",
                 "codecov.yml",
                 ".codecov.yml",
-            ].into_iter().map(String::from).collect(),
-            ci_dirs: vec![".circleci", ".travis"].into_iter().map(String::from).collect(),
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            ci_dirs: vec![".circleci", ".travis"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
 
             // ── Examples ──────────────────────────────────
-            example_dirs: vec!["example", "examples", "demo", "demos", "sample", "samples"].into_iter().map(String::from).collect(),
+            example_dirs: vec!["example", "examples", "demo", "demos", "sample", "samples"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
 
             // ── TypeScript Sources ────────────────────────
             ts_source_extensions: vec![".ts", ".tsx"].into_iter().map(String::from).collect(),
         };
-        
+
         // Apply custom config if provided
         if let Some(cfg) = config {
             if cfg.override_defaults {
@@ -315,7 +342,7 @@ impl PruneRules {
                 }
             }
         }
-        
+
         rules
     }
 
@@ -323,10 +350,7 @@ impl PruneRules {
     ///
     /// The `rel_path` should be relative to the package directory within node_modules.
     pub fn classify(&self, rel_path: &Path) -> Option<FileCategory> {
-        let file_name = rel_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let file_name = rel_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // ── Safety: never touch .bin or dotfiles (except .github) ──
         for component in rel_path.components() {
@@ -461,5 +485,143 @@ mod tests {
         let rules = PruneRules::new();
         let path = PathBuf::from("src/utils.ts");
         assert_eq!(rules.classify(&path), Some(FileCategory::TypeScriptSource));
+    }
+
+    #[test]
+    fn test_nested_node_modules_skipped() {
+        let rules = PruneRules::new();
+        let path = PathBuf::from("some-package/node_modules/nested/file.js");
+        assert_eq!(rules.classify(&path), None);
+    }
+
+    #[test]
+    fn test_ci_config_classified() {
+        let rules = PruneRules::new();
+
+        // CI files (non-dotfiles)
+        assert_eq!(
+            rules.classify(&PathBuf::from("circle.yml")),
+            Some(FileCategory::CiConfig)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("appveyor.yml")),
+            Some(FileCategory::CiConfig)
+        );
+
+        // CI directories (these are allowed even though they start with dots)
+        assert_eq!(
+            rules.classify(&PathBuf::from(".circleci/config.yml")),
+            Some(FileCategory::CiConfig)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from(".github/workflows/test.yml")),
+            Some(FileCategory::CiConfig)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from(".travis/config.yml")),
+            Some(FileCategory::CiConfig)
+        );
+    }
+
+    #[test]
+    fn test_build_files_classified() {
+        let rules = PruneRules::new();
+
+        // Build files
+        assert_eq!(
+            rules.classify(&PathBuf::from("Makefile")),
+            Some(FileCategory::BuildArtifact)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("binding.gyp")),
+            Some(FileCategory::BuildArtifact)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("tsconfig.json")),
+            Some(FileCategory::BuildArtifact)
+        );
+
+        // Build extensions
+        assert_eq!(
+            rules.classify(&PathBuf::from("native/addon.c")),
+            Some(FileCategory::BuildArtifact)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("native/addon.o")),
+            Some(FileCategory::BuildArtifact)
+        );
+    }
+
+    #[test]
+    fn test_example_dirs_classified() {
+        let rules = PruneRules::new();
+
+        assert_eq!(
+            rules.classify(&PathBuf::from("example/demo.js")),
+            Some(FileCategory::Example)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("examples/basic.js")),
+            Some(FileCategory::Example)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("demo/app.js")),
+            Some(FileCategory::Example)
+        );
+    }
+
+    #[test]
+    fn test_test_file_regex() {
+        let rules = PruneRules::new();
+
+        assert_eq!(
+            rules.classify(&PathBuf::from("utils.test.js")),
+            Some(FileCategory::TestAsset)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("utils.spec.ts")),
+            Some(FileCategory::TestAsset)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("jest.config.js")),
+            Some(FileCategory::TestAsset)
+        );
+    }
+
+    #[test]
+    fn test_dotfiles_skipped() {
+        let rules = PruneRules::new();
+
+        // Regular dotfiles should be skipped
+        assert_eq!(rules.classify(&PathBuf::from(".env")), None);
+        assert_eq!(rules.classify(&PathBuf::from(".gitignore")), None);
+
+        // But .github, .circleci, .travis are allowed
+        assert_eq!(
+            rules.classify(&PathBuf::from(".github/workflows/ci.yml")),
+            Some(FileCategory::CiConfig)
+        );
+    }
+
+    #[test]
+    fn test_category_labels() {
+        assert_eq!(FileCategory::Documentation.label(), "Documentation");
+        assert_eq!(FileCategory::TestAsset.label(), "Test-Asset");
+        assert_eq!(FileCategory::BuildArtifact.label(), "Build-Artifact");
+        assert_eq!(FileCategory::CiConfig.label(), "CI-Config");
+        assert_eq!(FileCategory::SourceMap.label(), "Source-Map");
+        assert_eq!(FileCategory::TypeScriptSource.label(), "TS-Source");
+        assert_eq!(FileCategory::Example.label(), "Example");
+    }
+
+    #[test]
+    fn test_category_risk_levels() {
+        assert_eq!(FileCategory::Documentation.risk_level(), 0);
+        assert_eq!(FileCategory::TestAsset.risk_level(), 0);
+        assert_eq!(FileCategory::CiConfig.risk_level(), 0);
+        assert_eq!(FileCategory::Example.risk_level(), 0);
+        assert_eq!(FileCategory::SourceMap.risk_level(), 1);
+        assert_eq!(FileCategory::BuildArtifact.risk_level(), 1);
+        assert_eq!(FileCategory::TypeScriptSource.risk_level(), 2);
     }
 }

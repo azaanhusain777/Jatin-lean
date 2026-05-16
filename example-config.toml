@@ -1,0 +1,102 @@
+# jatin-lean configuration file
+# Customize what gets deleted from node_modules
+
+# If true, ignores all built-in rules and only uses the ones defined here.
+# If false, these rules are added to the built-in defaults.
+override_defaults = false
+
+# Documentation files (exact filenames)
+doc_files = [
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+]
+
+# Documentation directories
+doc_dirs = [
+    "docs",
+    "doc",
+    ".github",
+]
+
+# Test directories
+test_dirs = [
+    "test",
+    "tests",
+    "__tests__",
+    "spec",
+    "specs",
+]
+
+# Test file patterns (regex)
+test_patterns = [
+    "\\.test\\.[jt]sx?$",
+    "\\.spec\\.[jt]sx?$",
+]
+
+# Build artifact extensions
+build_extensions = [
+    ".c",
+    ".cpp",
+    ".o",
+    ".gyp",
+]
+
+# Build artifact filenames
+build_files = [
+    "Makefile",
+    "binding.gyp",
+    "tsconfig.json",
+    ".eslintrc",
+]
+
+# Build artifact directories
+build_dirs = [
+    "build",
+]
+
+# Source map extensions
+map_extensions = [
+    ".js.map",
+    ".css.map",
+]
+
+# CI/CD config files
+ci_files = [
+    ".travis.yml",
+    "circle.yml",
+    "appveyor.yml",
+]
+
+# CI/CD directories
+ci_dirs = [
+    ".circleci",
+    ".travis",
+]
+
+# Example directories
+example_dirs = [
+    "example",
+    "examples",
+    "demo",
+    "demos",
+]
+
+# TypeScript source extensions (NOT .d.ts)
+ts_source_extensions = [
+    ".ts",
+    ".tsx",
+]
+
+# Exclude patterns (never delete these)
+exclude_patterns = [
+    # "important-file.js",
+    # "keep-this-dir/",
+]
+
+# Include patterns (always delete these)
+include_patterns = [
+    # "*.backup",
+    # "temp/",
+]

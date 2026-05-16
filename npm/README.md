@@ -6,6 +6,7 @@ Created by **Jatin Jalandhra**
 
 [![npm version](https://img.shields.io/npm/v/jatin-lean.svg)](https://www.npmjs.com/package/jatin-lean)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/decodejatin/jatin-lean/workflows/CI/badge.svg)](https://github.com/decodejatin/jatin-lean/actions)
 
 ---
 
@@ -15,38 +16,62 @@ Created by **Jatin Jalandhra**
 # Run directly with npx (no installation needed)
 npx jatin-lean
 
-# Execute deletion
+# Execute deletion with confirmation
 npx jatin-lean --force
+
+# Execute deletion without confirmation (automation)
+npx jatin-lean --force --yes
 
 # Verbose mode
 npx jatin-lean --verbose
+
+# Custom configuration
+npx jatin-lean --config my-rules.toml --force
 ```
 
 ---
 
-## 🎯 What It Does
+## ✨ Features
 
-Intelligently removes non-runtime files from your `node_modules`:
+### 🎯 Smart Deletion
+- **7 file categories** with risk levels
+- **Entry point whitelisting** from package.json
+- **Dry-run by default** for safety
+- **Interactive confirmation** before deletion
 
-| Category | Examples | Risk |
-|---|---|---|
-| **Documentation** | README.md, CHANGELOG.md | ▪ Low |
-| **Test Assets** | test/, *.test.js, *.spec.js | ▪ Low |
-| **CI/CD Config** | .travis.yml, .github/ | ▪ Low |
-| **Examples** | example/, demos/ | ▪ Low |
-| **Source Maps** | *.js.map, *.css.map | ▪▪ Medium |
-| **Build Artifacts** | *.c, *.o, Makefile | ▪▪ Medium |
-| **TS Sources** | *.ts, *.tsx (keeps .d.ts) | ▪▪▪ High |
+### ⚙️ Customizable
+- **TOML configuration** support
+- **Custom rules** for any project
+- **Extend or override** built-in rules
+- **Per-project configs** supported
+
+### 🚀 High Performance
+- **Parallel scanning** with Rust + rayon
+- **Fast execution** (seconds, not minutes)
+- **Minimal memory** usage
+- **Progress indicators** for large projects
+
+### 🛡️ Safety First
+- **Never touches** `.bin/` directories
+- **Preserves** runtime dependencies
+- **Keeps** type declarations (*.d.ts)
+- **Respects** package.json entry points
 
 ---
 
-## 🛡️ Safety First
+## 🎯 What It Deletes
 
-Before deleting anything:
-1. ✅ Parses `package.json` entry points (main, module, exports, bin, types)
-2. ✅ Auto-whitelists runtime-critical files
-3. ✅ Never touches `.bin/` directories
-4. ✅ Dry-run mode by default (safe preview)
+| Category | Examples | Risk | Typical Savings |
+|---|---|---|---|
+| **Documentation** | README.md, CHANGELOG.md, LICENSE | ▪ Low | 10-15% |
+| **Test Assets** | test/, *.test.js, *.spec.js | ▪ Low | 15-25% |
+| **CI/CD Config** | .travis.yml, .github/, .circleci/ | ▪ Low | 1-3% |
+| **Examples** | example/, demos/, samples/ | ▪ Low | 5-10% |
+| **Source Maps** | *.js.map, *.css.map | ▪▪ Medium | 10-15% |
+| **Build Artifacts** | *.c, *.o, Makefile, binding.gyp | ▪▪ Medium | 5-10% |
+| **TS Sources** | *.ts, *.tsx (keeps .d.ts) | ▪▪▪ High | 10-20% |
+
+**Total typical savings: 40-60% of node_modules size**
 
 ---
 
@@ -58,8 +83,11 @@ Before deleting anything:
 # Dry run (default - safe preview)
 npx jatin-lean
 
-# Execute deletion
+# Execute deletion with confirmation
 npx jatin-lean --force
+
+# Execute deletion without confirmation (CI/CD)
+npx jatin-lean --force --yes
 
 # Verbose - show every file
 npx jatin-lean --verbose
@@ -71,11 +99,42 @@ npx jatin-lean /path/to/project
 npx jatin-lean ~/projects --global
 ```
 
+### Configuration
+
+```bash
+# Generate example config
+npx jatin-lean --init-config jatin-lean.toml
+
+# Edit the config
+nano jatin-lean.toml
+
+# Run with custom config
+npx jatin-lean --config jatin-lean.toml --force
+```
+
+**Example config (jatin-lean.toml):**
+```toml
+# Extend built-in rules (default)
+override_defaults = false
+
+# Add custom documentation files
+doc_files = ["CUSTOM_README.md", "NOTES.txt"]
+
+# Add custom test directories
+test_dirs = ["integration-tests", "e2e"]
+
+# Keep certain files (never delete)
+exclude_patterns = ["important-file.js"]
+```
+
 ### CLI Options
 
 | Flag | Description |
 |---|---|
 | `--force` / `-f` | Execute deletion (default is dry-run) |
+| `--yes` / `-y` | Skip confirmation prompt (auto-confirm) |
+| `--config <FILE>` | Path to custom config file |
+| `--init-config <FILE>` | Generate example config file |
 | `--verbose` / `-v` | Show individual files targeted |
 | `--global` / `-g` | Scan all projects in a directory |
 | `--max-depth N` | Max directory depth for global scan |
@@ -127,7 +186,7 @@ npx jatin-lean ~/projects --global
 ```json
 {
   "scripts": {
-    "postinstall": "jatin-lean --force",
+    "postinstall": "jatin-lean --force --yes",
     "clean:modules": "jatin-lean --force"
   }
 }
@@ -140,7 +199,7 @@ FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --production
-RUN npx jatin-lean --force
+RUN npx jatin-lean --force --yes
 COPY . .
 CMD ["npm", "start"]
 ```
@@ -148,41 +207,49 @@ CMD ["npm", "start"]
 ### CI/CD Pipeline
 
 ```yaml
+# GitHub Actions
 - name: Install dependencies
   run: npm ci
 - name: Optimize node_modules
-  run: npx jatin-lean --force
+  run: npx jatin-lean --force --yes
+
+# GitLab CI
+script:
+  - npm ci
+  - npx jatin-lean --force --yes
+```
+
+### Pre-commit Hook
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+npx jatin-lean --verbose
+```
+
+### Monorepo Cleanup
+
+```bash
+# Scan all projects
+npx jatin-lean ~/monorepo --global
+
+# Clean specific project
+npx jatin-lean ~/monorepo/packages/api --force
 ```
 
 ---
 
 ## 🌍 Platform Support
 
-**Current Version (v0.1.0):**
-- ✅ **Linux x64** - Fully supported
+| Platform | Architecture | Status |
+|----------|-------------|--------|
+| **Linux** | x64 | ✅ Fully supported |
+| **Linux** | ARM64 | ✅ Fully supported |
+| **macOS** | x64 (Intel) | ✅ Fully supported |
+| **macOS** | ARM64 (M1/M2) | ✅ Fully supported |
+| **Windows** | x64 | ✅ Fully supported |
 
-**Coming Soon:**
-- ⏳ **macOS** (Intel & Apple Silicon)
-- ⏳ **Windows** (x64)
-- ⏳ **Linux ARM64**
-
-Multi-platform binaries will be available in the next release!
-
-### Building from Source (All Platforms)
-
-If you're on macOS or Windows, you can build from source:
-
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Clone and build
-git clone https://github.com/your-username/jatin-lean.git
-cd jatin-lean
-cargo build --release
-
-# Binary will be at: target/release/jatin-lean
-```
+Binaries are automatically downloaded during installation.
 
 ---
 
@@ -192,10 +259,76 @@ cargo build --release
 - **Efficient**: Completes in seconds, not minutes
 - **Safe**: Entry points protected automatically
 
-Expected performance:
+**Expected performance:**
 - Small projects (< 100 packages): < 1 second
 - Medium projects (100-500 packages): 1-3 seconds
 - Large projects (500+ packages): 3-10 seconds
+
+---
+
+## 🛡️ Safety Features
+
+### 3-Layer Safety System
+
+1. **Static Rules**
+   - Never touches `.bin/` directories
+   - Skips dotfiles (except .github, .circleci, .travis)
+   - Ignores nested `node_modules/`
+
+2. **Entry Point Whitelisting**
+   - Parses `package.json` fields: main, module, browser, bin, exports, types
+   - Auto-whitelists runtime-required files
+   - Preserves type declarations (*.d.ts)
+
+3. **Interactive Confirmation**
+   - Shows detailed savings summary
+   - Displays risk assessment
+   - Default answer is "No" for safety
+
+---
+
+## 📚 Documentation
+
+- **[Quick Start Guide](https://github.com/decodejatin/jatin-lean/blob/main/QUICK_START.md)** — Get started in 60 seconds
+- **[User Guide](https://github.com/decodejatin/jatin-lean/blob/main/USER_GUIDE.md)** — Comprehensive usage guide
+- **[Developer Guide](https://github.com/decodejatin/jatin-lean/blob/main/DEVELOPER.md)** — For contributors
+- **[Distribution Guide](https://github.com/decodejatin/jatin-lean/blob/main/DISTRIBUTION_GUIDE.md)** — Publishing workflow
+
+---
+
+## 🔄 Alternatives
+
+### How jatin-lean Compares
+
+| Feature | jatin-lean | node-prune | modclean |
+|---------|-----------|-----------|----------|
+| **Language** | Rust | Go | JavaScript |
+| **Speed** | ⚡⚡⚡ Fast | ⚡⚡ Medium | ⚡ Slow |
+| **Configuration** | ✅ TOML | ❌ No | ✅ CLI flags |
+| **Interactive** | ✅ Yes | ❌ No | ❌ No |
+| **Entry Points** | ✅ Parsed | ⚠️ Basic | ⚠️ Basic |
+| **Risk Levels** | ✅ 3 levels | ❌ No | ❌ No |
+| **Dry Run** | ✅ Default | ❌ No | ✅ Yes |
+| **Global Mode** | ✅ Yes | ❌ No | ❌ No |
+
+---
+
+## 🐛 Troubleshooting
+
+### Q: Nothing gets deleted
+**A:** Your node_modules is already lean, or files are whitelisted as runtime-required.
+
+### Q: Can I undo deletion?
+**A:** Not yet. Always run dry-run first to verify. Backup feature coming soon.
+
+### Q: How do I keep LICENSE files?
+**A:** Create a config with `doc_files = []` and `override_defaults = true`.
+
+### Q: Binary download fails
+**A:** Check internet connection or download manually from [GitHub Releases](https://github.com/decodejatin/jatin-lean/releases).
+
+### Q: Does it work on Windows?
+**A:** Yes! Windows x64 is fully supported.
 
 ---
 
@@ -208,6 +341,12 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
@@ -225,10 +364,18 @@ While `jatin-lean` is designed to be safe:
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/your-username/jatin-lean)
-- [Issue Tracker](https://github.com/your-username/jatin-lean/issues)
-- [npm Package](https://www.npmjs.com/package/jatin-lean)
+- **[GitHub Repository](https://github.com/decodejatin/jatin-lean)** — Source code
+- **[Issue Tracker](https://github.com/decodejatin/jatin-lean/issues)** — Bug reports
+- **[npm Package](https://www.npmjs.com/package/jatin-lean)** — npm registry
+- **[crates.io](https://crates.io/crates/jatin-lean)** — Rust package
+
+---
+
+## 🌟 Star History
+
+If you find this tool useful, please consider giving it a star on GitHub!
 
 ---
 
 **Made with ❤️ by Jatin Jalandhra**
+

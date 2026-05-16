@@ -30,24 +30,27 @@ Run:      cargo run -- <path> [--force] [--verbose] [--global]
 Binary:   target/release/jatin-lean (2.9MB with LTO)
 ```
 
-### Current Status (v0.1.0)
+### Current Status (v0.1.6)
 
 | Feature | Status |
 |---------|--------|
 | Parallel scanning (ignore + rayon) | ✅ Done |
 | 7-category file classification | ✅ Done |
 | package.json entry point parsing | ✅ Done |
-| require()/import dependency tracing | ✅ Done |
+| require()/import dependency tracing | ✅ Done (optimized) |
 | Dry-run mode (default) | ✅ Done |
 | Force deletion with progress bar | ✅ Done |
 | Global multi-project scan | ✅ Done |
 | Verbose file listing | ✅ Done |
-| External rules.toml config | ❌ Not started |
+| External rules.toml config | ✅ Done |
+| Interactive confirmation prompt | ✅ Done |
+| --yes flag for automation | ✅ Done |
+| --init-config flag | ✅ Done |
+| Comprehensive test suite (32 tests) | ✅ Done |
 | npx distribution | ❌ Not started |
 | Undo/restore capability | ❌ Not started |
 | Windows locked-file handling | ❌ Not started |
 | Benchmark suite | ❌ Not started |
-| Interactive confirmation prompt | ❌ Not started |
 
 ---
 
@@ -58,9 +61,10 @@ Binary:   target/release/jatin-lean (2.9MB with LTO)
 ```
 src/
 ├── main.rs       → CLI entry point, orchestrates the 4-phase flow
+├── config.rs     → Configuration file loading and parsing
 ├── rules.rs      → Heuristic ruleset (which files to target)
 ├── scanner.rs    → Parallel file walker + package.json parser
-├── tracer.rs     → require()/import dependency resolver
+├── tracer.rs     → require()/import dependency resolver (optimized)
 ├── deleter.rs    → Batch file deletion engine
 └── display.rs    → Terminal UI (tables, banners, progress)
 ```
@@ -122,22 +126,14 @@ main()
 |-------|------|---------|-------------|
 | `path` | positional | `"."` | Project directory |
 | `force` | `-f, --force` | `false` | Execute deletion |
-| `dry_run` | `-d, --dry-run` | `false` | Explicit dry-run |
+| `yes` | `-y, --yes` | `false` | Skip confirmation prompt |
+| `config` | `--config <FILE>` | `None` | Custom config file path |
 | `global` | `-g, --global` | `false` | Multi-project scan |
 | `verbose` | `-v, --verbose` | `false` | List individual files |
 | `max_depth` | `--max-depth` | `4` | Global scan depth |
+| `init_config` | `--init-config <FILE>` | `None` | Generate example config |
 
-**⚠️ Bug on line 123-124:** The whitelisted count calculation is a no-op:
-```rust
-// BUG: This always adds 0 because it subtracts len from itself
-whitelisted_count: scan_result.whitelisted_count
-    + (scan_result.candidates.len() - scan_result.candidates.len()) as u64,
-```
-Should be:
-```rust
-whitelisted_count: scan_result.whitelisted_count
-    + (scan_result.candidates.len() - safe_candidates.len()) as u64,
-```
+**⚠️ Bug on line 123-124 — FIXED in v0.1.6**
 
 ---
 
@@ -320,49 +316,57 @@ Two layers of protection (dependency tracing disabled for performance):
 
 ### Bugs
 
-1. **Whitelisted count miscalculation** (`main.rs:123-124`)
-   - `scan_result.candidates.len() - scan_result.candidates.len()` is always 0
-   - Fix: use `safe_candidates.len()` for the subtracted value
-
-2. **`--max-depth` unused** (`main.rs:187`)
-   - The `_max_depth` parameter is accepted but never passed to `find_node_modules()`
-   - `find_node_modules()` hardcodes `max_depth(Some(10))`
-
-3. **`--dry-run` flag is redundant**
-   - Dry-run is already the default behavior
-   - The flag exists but doesn't change any logic
+~~All known bugs have been fixed in v0.1.6~~
 
 ### Limitations
 
-1. **No `rules.toml` support** — Rules are hardcoded in `PruneRules::new()`
-2. **No undo mechanism** — Deleted files cannot be restored
-3. **Single-threaded deletion** — `execute_deletion()` is sequential (rayon only used for scanning)
-4. **No Windows-specific handling** — Locked file detection is basic `fs::remove_file` error
-5. **Tracer only handles local deps** — `require('lodash')` (bare specifiers) are ignored (by design)
-6. **No symlink awareness** — Symlinked packages could cause issues
-7. **`build/` directory deletion is risky** — Some packages ship runtime code in `build/`
-8. **No LICENSE opt-out** — LICENSE files are listed in doc_files but treated same as README
-9. **`humansize` and `chrono` and `toml` crates** — Imported in Cargo.toml but unused in code
+1. **No undo mechanism** — Deleted files cannot be restored (planned for Phase F)
+2. **Single-threaded deletion** — `execute_deletion()` is sequential (rayon only used for scanning)
+3. **No Windows-specific handling** — Locked file detection is basic `fs::remove_file` error
+4. **Tracer only handles local deps** — `require('lodash')` (bare specifiers) are ignored (by design)
+5. **No symlink awareness** — Symlinked packages could cause issues
+6. **`build/` directory deletion is risky** — Some packages ship runtime code in `build/`
+7. **No LICENSE opt-out** — LICENSE files are listed in doc_files but treated same as README
 
 ---
 
 ## 7. Development Roadmap
 
-### Phase A: Bug Fixes (Priority: High)
+### ~~Phase A: Bug Fixes~~ (✅ COMPLETED in v0.1.6)
 
-- [ ] Fix whitelisted count calculation in `main.rs:123-124`
-- [ ] Wire `--max-depth` to `find_node_modules()`
-- [ ] Remove or use `--dry-run` flag meaningfully
-- [ ] Remove unused dependencies (`humansize`, `chrono`, `toml`)
+- [x] Fix whitelisted count calculation in `main.rs:123-124`
+- [x] Wire `--max-depth` to `find_node_modules()`
+- [x] Remove or use `--dry-run` flag meaningfully
+- [x] Remove unused dependencies (`humansize`, `chrono`)
 
-### Phase B: Configuration System (Priority: High)
+### ~~Phase B: Configuration System~~ (✅ COMPLETED in v0.1.6)
 
-- [ ] Create `rules.toml` file format for custom patterns
-- [ ] Add `--config <path>` CLI flag
-- [ ] Support `~/.config/jatin-lean/rules.toml` for global config
-- [ ] Add `--exclude <pattern>` and `--include <pattern>` CLI overrides
+- [x] Create `rules.toml` file format for custom patterns
+- [x] Add `--config <path>` CLI flag
+- [x] Support `~/.config/jatin-lean/rules.toml` for global config
+- [x] Add `--init-config` flag to generate example config
 
-### Phase C: Safety Improvements (Priority: High)
+### ~~Phase C: Interactive Confirmation~~ (✅ COMPLETED in v0.1.6)
+
+- [x] Add interactive confirmation prompt before deletion
+- [x] Add `--yes` flag to skip confirmation for automation
+- [x] Show detailed savings summary before proceeding
+
+### ~~Phase D: Test Suite~~ (✅ COMPLETED in v0.1.6)
+
+- [x] Add comprehensive tests for scanner.rs (11 tests)
+- [x] Add comprehensive tests for rules.rs (14 tests)
+- [x] Add comprehensive tests for config.rs (8 tests)
+- [x] Total: 32 tests (up from 6)
+
+### Phase E: Distribution (Priority: High)
+
+- [ ] Create npm wrapper package for `npx jatin-lean` support
+- [ ] Publish pre-built binaries for Linux/macOS/Windows
+- [ ] GitHub Actions CI/CD pipeline
+- [ ] Add `cargo install jatin-lean` support (publish to crates.io)
+
+### Phase F: Safety Improvements (Priority: Medium)
 
 - [ ] Add `--backup` flag to archive files before deletion
 - [ ] Add `--restore` command to undo last deletion
@@ -370,21 +374,18 @@ Two layers of protection (dependency tracing disabled for performance):
 - [ ] Add `--keep-license` flag
 - [ ] Deeper ESM `import` tracing (handle re-exports, barrel files)
 
-### Phase D: Performance (Priority: Medium)
+### Phase G: Performance (Priority: Medium)
 
 - [ ] Parallelize deletion with rayon (batch by package)
 - [ ] Use `crossbeam-channel` instead of `Arc<Mutex<Vec>>` for candidates
 - [ ] Add `--jobs N` flag to control parallelism
 - [ ] Benchmark suite comparing against `du -sh` and `npx node-prune`
 
-### Phase E: Distribution (Priority: Medium)
-
-- [ ] Create npm wrapper package for `npx jatin-lean` support
-- [ ] Publish pre-built binaries for Linux/macOS/Windows
+### Phase H: Advanced Features (Priority: Low)
 - [ ] GitHub Actions CI/CD pipeline
 - [ ] Add `cargo install jatin-lean` support (publish to crates.io)
 
-### Phase F: Advanced Features (Priority: Low)
+### Phase H: Advanced Features (Priority: Low)
 
 - [ ] Interactive mode with `dialoguer` — let user select categories
 - [ ] JSON/CSV output mode (`--output json`)
@@ -481,8 +482,9 @@ cargo test test_readme  # Run specific test
 
 ### Current Test Coverage
 
-All tests are in `rules.rs`:
+All tests are in `rules.rs`, `scanner.rs`, and `config.rs`:
 
+**rules.rs (20 tests):**
 | Test | What it verifies |
 |------|-----------------|
 | `test_readme_classified_as_documentation` | README.md → Documentation |
@@ -491,32 +493,52 @@ All tests are in `rules.rs`:
 | `test_dotbin_never_deleted` | .bin/somefile → None (safe) |
 | `test_dts_files_kept` | index.d.ts → None (kept) |
 | `test_ts_source_classified` | src/utils.ts → TypeScriptSource |
+| `test_nested_node_modules_skipped` | Nested node_modules safety |
+| `test_ci_config_classified` | CI/CD file detection |
+| `test_build_files_classified` | Build artifact detection |
+| `test_example_dirs_classified` | Example directory detection |
+| `test_test_file_regex` | Test file pattern matching |
+| `test_dotfiles_skipped` | Dotfile safety checks |
+| `test_category_labels` | Category label strings |
+| `test_category_risk_levels` | Risk level values |
+
+**scanner.rs (11 tests):**
+| Test | What it verifies |
+|------|-----------------|
+| `test_format_number` | Number formatting with commas |
+| `test_format_size` | Human-readable size formatting |
+| `test_extract_package_name` | Regular and scoped packages |
+| `test_extract_entry_points_main_field` | package.json main field |
+| `test_extract_entry_points_multiple_fields` | main, module, types |
+| `test_extract_entry_points_bin_object` | bin field parsing |
+| `test_extract_entry_points_exports_string` | exports as string |
+| `test_extract_entry_points_exports_object` | exports as object |
+| `test_scan_result_savings` | Savings calculation |
+| `test_scan_result_risk_levels` | Risk level detection |
+
+**config.rs (8 tests):**
+| Test | What it verifies |
+|------|-----------------|
+| `test_config_default` | Default config values |
+| `test_config_generate_sample` | Sample generation |
+| `test_config_create_example` | File creation |
+| `test_config_from_file` | TOML parsing |
+| `test_config_load_custom_path` | Custom path loading |
+| `test_config_load_local` | Local config discovery |
+| `test_config_load_none` | No config fallback |
+| `test_config_invalid_path` | Error handling |
+
+**Total: 32 tests**
 
 ### Tests You Should Add
 
 ```rust
-// scanner.rs tests
-#[test] fn test_extract_entry_points_main_field() { ... }
-#[test] fn test_extract_entry_points_exports_map() { ... }
-#[test] fn test_scoped_package_name_extraction() { ... }
-#[test] fn test_format_size_edge_cases() { ... }
-
-// tracer.rs tests
-#[test] fn test_require_extraction() { ... }
-#[test] fn test_import_extraction() { ... }
-#[test] fn test_resolve_module_with_extensions() { ... }
-#[test] fn test_circular_dependency_handling() { ... }
-
-// rules.rs — missing coverage
-#[test] fn test_nested_node_modules_skipped() { ... }
-#[test] fn test_ci_config_classified() { ... }
-#[test] fn test_build_files_classified() { ... }
-#[test] fn test_example_dirs_classified() { ... }
-
 // Integration tests (create in tests/ directory)
 #[test] fn test_full_scan_on_fixture() { ... }
 #[test] fn test_dry_run_doesnt_delete() { ... }
 #[test] fn test_force_mode_deletes_files() { ... }
+#[test] fn test_config_override_works() { ... }
+#[test] fn test_interactive_confirmation() { ... }
 ```
 
 ### Creating Test Fixtures
@@ -546,9 +568,14 @@ echo 'test' > tests/fixtures/node_modules/fake-pkg/test/test.js
 | `serde_json` | 1 | scanner.rs, tracer.rs | package.json parsing |
 | `regex` | 1 | rules.rs, tracer.rs | Pattern matching for test files and imports |
 | `anyhow` | 1 | all modules | Error handling with context |
-| `humansize` | 2 | **⚠️ UNUSED** | Can be removed or used to replace `format_size()` |
-| `chrono` | 0.4 | **⚠️ UNUSED** | Can be removed or used in global mode date display |
-| `toml` | 0.8 | **⚠️ UNUSED** | Reserved for future rules.toml support |
+| `toml` | 0.8 | config.rs | TOML configuration file parsing |
+| `dialoguer` | 0.11 | main.rs | Interactive confirmation prompts |
+| `dirs` | 5.0 | config.rs | Home directory detection |
+
+**Dev Dependencies:**
+| Crate | Version | Used In | Purpose |
+|-------|---------|---------|---------|
+| `tempfile` | 3 | config.rs tests | Temporary files for testing |
 
 ### Build Profile (Release)
 

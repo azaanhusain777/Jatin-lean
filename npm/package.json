@@ -1,8 +1,9 @@
 {
   "name": "jatin-lean",
-  "version": "0.1.6",
-  "description": "A high-performance CLI utility to prune non-essential files from node_modules, reducing disk footprint by up to 50% without breaking runtime dependencies.",
+  "version": "0.3.0",
+  "description": "A high-performance CLI utility to prune, analyze, and optimize node_modules — featuring duplicate detection, dependency graph analysis, snapshot/undo, watch mode, and analytics.",
   "main": "index.js",
+  "types": "index.d.ts",
   "bin": {
     "jatin-lean": "bin/jatin-lean.js"
   },
@@ -18,7 +19,24 @@
     "optimization",
     "npm",
     "dependencies",
-    "cli"
+    "cli",
+    "treeshake",
+    "dedup",
+    "duplicate",
+    "analytics",
+    "snapshot",
+    "undo",
+    "watch",
+    "health",
+    "compression",
+    "policy",
+    "enterprise",
+    "dependency-graph",
+    "lockfile",
+    "pruning",
+    "devtools",
+    "build-tool",
+    "performance"
   ],
   "author": "Jatin Jalandhra",
   "license": "MIT",
@@ -46,6 +64,7 @@
     "bin/jatin-lean.js",
     "install.js",
     "index.js",
+    "index.d.ts",
     "README.md",
     "LICENSE"
   ]

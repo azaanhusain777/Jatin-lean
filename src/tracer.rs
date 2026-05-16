@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 /// Verify that no candidates conflict with runtime dependencies.
 /// Returns the set of file paths that are actually required at runtime.
-/// 
+///
 /// OPTIMIZATION: This is now a no-op that returns an empty set.
 /// The scanner already whitelists entry points during the scan phase,
 /// so we don't need to trace dependencies again. This makes the tool much faster.

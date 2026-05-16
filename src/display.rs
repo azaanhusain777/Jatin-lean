@@ -16,7 +16,9 @@ pub fn print_discovery(result: &ScanResult) {
         "  {} Scanning node_modules... Found {} files across {} packages.",
         style("◉").cyan(),
         style(format_number(result.total_files)).white().bold(),
-        style(format_number(result.total_packages as u64)).white().bold(),
+        style(format_number(result.total_packages as u64))
+            .white()
+            .bold(),
     );
     println!(
         "  {} Total size indexed: {}",
@@ -39,7 +41,9 @@ pub fn print_simulation(result: &ScanResult) {
     println!(
         "  {} Analyzing dependency tree... {} files ({}) identified as non-runtime assets.",
         style("◉").cyan(),
-        style(format_number(result.candidates.len() as u64)).yellow().bold(),
+        style(format_number(result.candidates.len() as u64))
+            .yellow()
+            .bold(),
         style(format_size(savings)).yellow().bold(),
     );
 
@@ -47,7 +51,9 @@ pub fn print_simulation(result: &ScanResult) {
         println!(
             "  {} {} files auto-whitelisted (required at runtime).",
             style("◉").green(),
-            style(format_number(result.whitelisted_count)).green().bold(),
+            style(format_number(result.whitelisted_count))
+                .green()
+                .bold(),
         );
     }
 
@@ -154,9 +160,7 @@ pub fn print_dry_run_confirmation(result: &ScanResult) {
 }
 
 /// Print the global scan table.
-pub fn print_global_table(
-    projects: &[(String, u64, u64, Option<u64>)],
-) {
+pub fn print_global_table(projects: &[(String, u64, u64, Option<u64>)]) {
     println!();
     println!(
         "  {} {}",
@@ -226,7 +230,9 @@ pub fn print_banner() {
     println!(
         "  {}  {}  {}",
         style("║").cyan(),
-        style("⚡ jatin-lean — Node Modules Pruner ⚡").white().bold(),
+        style("⚡ jatin-lean — Node Modules Pruner ⚡")
+            .white()
+            .bold(),
         style("║").cyan()
     );
     println!(

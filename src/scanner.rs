@@ -124,11 +124,9 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
     // Create progress bar
     let pb = ProgressBar::new_spinner();
     pb.set_style(
-        ProgressStyle::with_template(
-            "  {spinner:.cyan} {msg}",
-        )
-        .unwrap()
-        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+        ProgressStyle::with_template("  {spinner:.cyan} {msg}")
+            .unwrap()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     pb.set_message("Scanning files...");
     pb.enable_steady_tick(std::time::Duration::from_millis(80));
@@ -152,7 +150,10 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
                                 }
                             }
                         }
-                    } else if name_str != ".bin" && name_str != ".cache" && name_str != ".package-lock.json" {
+                    } else if name_str != ".bin"
+                        && name_str != ".cache"
+                        && name_str != ".package-lock.json"
+                    {
                         packages.push(path);
                     }
                 }
@@ -358,6 +359,248 @@ pub fn format_number(n: u64) -> String {
         result.push(ch);
     }
     result.chars().rev().collect()
+}
+
+/// Get sizes of top-level packages in node_modules.
+///
+/// Returns a Vec of (package_name, total_size) sorted by size descending.
+pub fn package_sizes(nm_path: &Path) -> Vec<(String, u64)> {
+    use std::collections::HashMap;
+
+    let mut sizes: HashMap<String, u64> = HashMap::new();
+
+    let Ok(entries) = std::fs::read_dir(nm_path) else {
+        return Vec::new();
+    };
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_str().unwrap_or("").to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+
+        let path = entry.path();
+        if name.starts_with('@') {
+            // Scoped packages
+            if let Ok(scoped) = std::fs::read_dir(&path) {
+                for s in scoped.flatten() {
+                    let scoped_name = format!("{}/{}", name, s.file_name().to_str().unwrap_or(""));
+                    let size = dir_size(&s.path());
+                    sizes.insert(scoped_name, size);
+                }
+            }
+        } else if path.is_dir() {
+            let size = dir_size(&path);
+            sizes.insert(name, size);
+        }
+    }
+
+    let mut result: Vec<(String, u64)> = sizes.into_iter().collect();
+    result.sort_by(|a, b| b.1.cmp(&a.1));
+    result
+}
+
+/// Calculate total size of a directory recursively.
+fn dir_size(path: &Path) -> u64 {
+    let walker = ignore::WalkBuilder::new(path)
+        .hidden(false)
+        .git_ignore(false)
+        .build();
+
+    walker
+        .flatten()
+        .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_number() {
+        assert_eq!(format_number(0), "0");
+        assert_eq!(format_number(999), "999");
+        assert_eq!(format_number(1000), "1,000");
+        assert_eq!(format_number(1234567), "1,234,567");
+        assert_eq!(format_number(1000000000), "1,000,000,000");
+    }
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(format_size(0), "0B");
+        assert_eq!(format_size(512), "512B");
+        assert_eq!(format_size(1024), "1.0KB");
+        assert_eq!(format_size(1536), "1.5KB");
+        assert_eq!(format_size(1048576), "1.0MB");
+        assert_eq!(format_size(1572864), "1.5MB");
+        assert_eq!(format_size(1073741824), "1.0GB");
+        assert_eq!(format_size(1610612736), "1.5GB");
+    }
+
+    #[test]
+    fn test_extract_package_name() {
+        let nm_path = PathBuf::from("/project/node_modules");
+
+        // Regular package
+        let pkg_path = PathBuf::from("/project/node_modules/lodash");
+        assert_eq!(extract_package_name(&pkg_path, &nm_path), "lodash");
+
+        // Scoped package
+        let scoped_path = PathBuf::from("/project/node_modules/@babel/core");
+        assert_eq!(extract_package_name(&scoped_path, &nm_path), "@babel/core");
+    }
+
+    #[test]
+    fn test_extract_entry_points_main_field() {
+        use serde_json::json;
+
+        let pkg_root = PathBuf::from("/test/pkg");
+        let json = json!({
+            "name": "test-pkg",
+            "main": "index.js"
+        });
+
+        let entries = extract_entry_points(&json, &pkg_root);
+        assert!(entries.contains(&pkg_root.join("index.js")));
+    }
+
+    #[test]
+    fn test_extract_entry_points_multiple_fields() {
+        use serde_json::json;
+
+        let pkg_root = PathBuf::from("/test/pkg");
+        let json = json!({
+            "name": "test-pkg",
+            "main": "index.js",
+            "module": "index.mjs",
+            "types": "index.d.ts"
+        });
+
+        let entries = extract_entry_points(&json, &pkg_root);
+        assert!(entries.contains(&pkg_root.join("index.js")));
+        assert!(entries.contains(&pkg_root.join("index.mjs")));
+        assert!(entries.contains(&pkg_root.join("index.d.ts")));
+    }
+
+    #[test]
+    fn test_extract_entry_points_bin_object() {
+        use serde_json::json;
+
+        let pkg_root = PathBuf::from("/test/pkg");
+        let json = json!({
+            "name": "test-pkg",
+            "bin": {
+                "cli": "bin/cli.js",
+                "tool": "bin/tool.js"
+            }
+        });
+
+        let entries = extract_entry_points(&json, &pkg_root);
+        assert!(entries.contains(&pkg_root.join("bin/cli.js")));
+        assert!(entries.contains(&pkg_root.join("bin/tool.js")));
+    }
+
+    #[test]
+    fn test_extract_entry_points_exports_string() {
+        use serde_json::json;
+
+        let pkg_root = PathBuf::from("/test/pkg");
+        let json = json!({
+            "name": "test-pkg",
+            "exports": "./dist/index.js"
+        });
+
+        let entries = extract_entry_points(&json, &pkg_root);
+        assert!(entries.contains(&pkg_root.join("./dist/index.js")));
+    }
+
+    #[test]
+    fn test_extract_entry_points_exports_object() {
+        use serde_json::json;
+
+        let pkg_root = PathBuf::from("/test/pkg");
+        let json = json!({
+            "name": "test-pkg",
+            "exports": {
+                ".": "./dist/index.js",
+                "./utils": "./dist/utils.js"
+            }
+        });
+
+        let entries = extract_entry_points(&json, &pkg_root);
+        assert!(entries.contains(&pkg_root.join("./dist/index.js")));
+        assert!(entries.contains(&pkg_root.join("./dist/utils.js")));
+    }
+
+    #[test]
+    fn test_scan_result_savings() {
+        let result = ScanResult {
+            root: PathBuf::from("/test"),
+            total_files: 100,
+            total_size: 10000,
+            candidates: vec![
+                PruneCandidate {
+                    path: PathBuf::from("/test/file1.js"),
+                    size: 100,
+                    category: FileCategory::Documentation,
+                    package_name: "test".to_string(),
+                },
+                PruneCandidate {
+                    path: PathBuf::from("/test/file2.js"),
+                    size: 200,
+                    category: FileCategory::TestAsset,
+                    package_name: "test".to_string(),
+                },
+            ],
+            total_packages: 1,
+            whitelisted_count: 0,
+        };
+
+        assert_eq!(result.savings(), 300);
+    }
+
+    #[test]
+    fn test_scan_result_risk_levels() {
+        let low_risk = ScanResult {
+            root: PathBuf::from("/test"),
+            total_files: 10,
+            total_size: 1000,
+            candidates: vec![PruneCandidate {
+                path: PathBuf::from("/test/README.md"),
+                size: 100,
+                category: FileCategory::Documentation,
+                package_name: "test".to_string(),
+            }],
+            total_packages: 1,
+            whitelisted_count: 0,
+        };
+
+        assert_eq!(low_risk.max_risk(), 0);
+        assert_eq!(low_risk.risk_label(), "LOW — Only junk files targeted");
+
+        let high_risk = ScanResult {
+            root: PathBuf::from("/test"),
+            total_files: 10,
+            total_size: 1000,
+            candidates: vec![PruneCandidate {
+                path: PathBuf::from("/test/src/utils.ts"),
+                size: 100,
+                category: FileCategory::TypeScriptSource,
+                package_name: "test".to_string(),
+            }],
+            total_packages: 1,
+            whitelisted_count: 0,
+        };
+
+        assert_eq!(high_risk.max_risk(), 2);
+        assert_eq!(
+            high_risk.risk_label(),
+            "HIGH — TypeScript sources included (declarations kept)"
+        );
+    }
 }
 
 /// Format a size in bytes as a human-readable string.

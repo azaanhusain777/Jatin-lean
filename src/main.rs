@@ -2,18 +2,38 @@
 //! files from node_modules, reducing disk footprint by up to 50%
 //! without breaking runtime dependencies.
 
+mod allocator;
+mod analytics;
+mod benchmark;
+mod cache;
+mod compress;
 mod config;
+mod dedup;
 mod deleter;
 mod display;
+mod health;
+mod lockfile;
+mod mmap;
+mod network;
+mod plugin;
+mod policy;
+mod profiler;
 mod rules;
 mod scanner;
+mod simd;
+mod snapshot;
+mod syscall;
 mod tracer;
+mod treeshake;
+mod visualizer;
+mod watcher;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use console::style;
 use dialoguer::Confirm;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 /// ⚡ jatin-lean — Prune non-essential files from node_modules
 #[derive(Parser, Debug)]
@@ -55,6 +75,191 @@ struct Cli {
     /// Generate example config file
     #[arg(long, value_name = "FILE")]
     init_config: Option<PathBuf>,
+
+    /// Enable performance profiling
+    #[arg(long)]
+    profile: bool,
+
+    /// Create a snapshot before deletion (for undo support)
+    #[arg(long)]
+    snapshot: bool,
+
+    /// Export scan results to a file (json, csv, or md)
+    #[arg(long, value_name = "FILE")]
+    export: Option<PathBuf>,
+
+    /// Subcommands for advanced features
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+/// Advanced subcommands
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Show scan history and analytics dashboard
+    Analytics {
+        /// Clear all analytics data
+        #[arg(long)]
+        clear: bool,
+    },
+
+    /// Find duplicate files across packages in node_modules
+    Dedup {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Analyze the dependency graph from lock files
+    Deps {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Manage pre-deletion snapshots
+    Snapshots {
+        /// List all snapshots
+        #[arg(long)]
+        list: bool,
+
+        /// Restore a specific snapshot by ID
+        #[arg(long, value_name = "SNAPSHOT_ID")]
+        restore: Option<String>,
+
+        /// Delete a specific snapshot by ID
+        #[arg(long, value_name = "SNAPSHOT_ID")]
+        delete: Option<String>,
+
+        /// Clean up snapshots older than N days
+        #[arg(long, value_name = "DAYS")]
+        cleanup: Option<u64>,
+    },
+
+    /// Watch node_modules for changes and auto-prune
+    Watch {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Polling interval in seconds
+        #[arg(long, default_value = "5")]
+        interval: u64,
+
+        /// Automatically prune on changes (without --force, does dry-run)
+        #[arg(long)]
+        auto_prune: bool,
+
+        /// Maximum number of prune cycles (0 = unlimited)
+        #[arg(long, default_value = "0")]
+        max_cycles: u64,
+    },
+
+    /// Manage the incremental scan cache
+    Cache {
+        /// Clear the scan cache
+        #[arg(long)]
+        clear: bool,
+
+        /// Show cache statistics
+        #[arg(long)]
+        stats: bool,
+
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Run a comprehensive health check on node_modules
+    Health {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Analyze tree-shaking potential and dead exports
+    Treeshake {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Analyze compression potential (gzip/brotli transfer sizes)
+    Compress {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Enforce dependency policies
+    Policy {
+        /// Path to the policy file (TOML or JSON)
+        #[arg(long, value_name = "FILE")]
+        file: Option<PathBuf>,
+
+        /// Generate an example policy file
+        #[arg(long, value_name = "FILE")]
+        init: Option<PathBuf>,
+
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// List and manage plugins
+    Plugins {
+        /// List all registered plugins
+        #[arg(long)]
+        list: bool,
+    },
+
+    /// Run built-in performance benchmarks
+    Bench {
+        /// Run all internal component benchmarks
+        #[arg(long)]
+        all: bool,
+
+        /// Show timer resolution info
+        #[arg(long)]
+        timer: bool,
+    },
+
+    /// Show I/O statistics and filesystem info
+    Io {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Show filesystem info
+        #[arg(long)]
+        fs_info: bool,
+
+        /// Show process resource usage
+        #[arg(long)]
+        process: bool,
+    },
+
+    /// Render visual analysis of node_modules
+    Visualize {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Show treemap of package sizes
+        #[arg(long)]
+        treemap: bool,
+
+        /// Show size sparklines
+        #[arg(long)]
+        sparklines: bool,
+    },
+
+    /// Audit installed packages against the npm registry
+    Audit {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -81,6 +286,11 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    // Handle subcommands
+    if let Some(command) = cli.command {
+        return handle_subcommand(command);
+    }
+
     display::print_banner();
 
     let target = std::fs::canonicalize(&cli.path)
@@ -89,14 +299,454 @@ fn main() -> Result<()> {
     if cli.global {
         run_global_mode(&target, cli.max_depth)?;
     } else {
-        run_local_mode(&target, cli.force, cli.yes, cli.verbose, cli.config.as_deref())?;
+        run_local_mode(
+            &target,
+            cli.force,
+            cli.yes,
+            cli.verbose,
+            cli.config.as_deref(),
+            cli.profile,
+            cli.snapshot,
+            cli.export.as_deref(),
+        )?;
     }
 
     Ok(())
 }
 
+/// Handle subcommands.
+fn handle_subcommand(command: Commands) -> Result<()> {
+    display::print_banner();
+
+    match command {
+        Commands::Analytics { clear } => {
+            if clear {
+                let mut db = analytics::AnalyticsDB::load()?;
+                db.clear()?;
+                println!("  {} Analytics data cleared.", style("✓").green().bold());
+            } else {
+                let db = analytics::AnalyticsDB::load()?;
+                analytics::print_analytics_summary(&db);
+            }
+        }
+
+        Commands::Dedup { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+            let result = dedup::find_duplicates(&nm_path)?;
+            dedup::print_dedup_results(&result);
+        }
+
+        Commands::Deps { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            let graph = lockfile::DependencyGraph::from_project(&target)?;
+            lockfile::print_dep_graph_summary(&graph, &nm_path);
+        }
+
+        Commands::Snapshots {
+            list: _,
+            restore,
+            delete,
+            cleanup,
+        } => {
+            let manager = snapshot::SnapshotManager::new()?;
+
+            if let Some(snapshot_id) = restore {
+                let result = manager.restore_snapshot(&snapshot_id)?;
+                snapshot::print_restore_result(&result);
+            } else if let Some(snapshot_id) = delete {
+                manager.delete_snapshot(&snapshot_id)?;
+                println!(
+                    "  {} Snapshot {} deleted.",
+                    style("✓").green().bold(),
+                    style(&snapshot_id).cyan()
+                );
+            } else if let Some(days) = cleanup {
+                let deleted = manager.cleanup_old_snapshots(days)?;
+                println!(
+                    "  {} Cleaned up {} old snapshots.",
+                    style("✓").green().bold(),
+                    deleted
+                );
+            } else {
+                // Default: list
+                let snapshots = manager.list_snapshots()?;
+                snapshot::print_snapshot_list(&snapshots);
+            }
+        }
+
+        Commands::Watch {
+            path,
+            interval,
+            auto_prune,
+            max_cycles,
+        } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+
+            let config = watcher::WatcherConfig {
+                poll_interval_secs: interval,
+                auto_prune,
+                max_cycles,
+                ..Default::default()
+            };
+
+            let mut w = watcher::NodeModulesWatcher::new(nm_path.clone(), config);
+            let running = w.running_flag();
+
+            // Set up Ctrl+C handler
+            let running_clone = running.clone();
+            ctrlc_handler(move || {
+                running_clone.store(false, std::sync::atomic::Ordering::SeqCst);
+            });
+
+            w.watch(|nm_path| {
+                let rules = rules::PruneRules::new();
+                let scan_result = scanner::scan_node_modules(nm_path, &rules)?;
+                display::print_discovery(&scan_result);
+                display::print_simulation(&scan_result);
+                Ok(())
+            })?;
+        }
+
+        Commands::Cache {
+            clear,
+            stats: _,
+            path,
+        } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+
+            if clear {
+                let mut c = cache::ScanCache::load(&nm_path);
+                c.clear();
+                c.save(&nm_path)?;
+                println!("  {} Scan cache cleared.", style("✓").green().bold());
+            } else {
+                let c = cache::ScanCache::load(&nm_path);
+                println!();
+                println!(
+                    "  {} {}",
+                    style("Scan Cache").cyan().bold(),
+                    style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+                );
+                println!(
+                    "  {} Cached packages: {}",
+                    style("◉").cyan(),
+                    style(c.cached_count()).white().bold()
+                );
+                println!("  {} Cache age: {}s", style("◉").cyan(), c.age_seconds());
+                println!(
+                    "  {} Cache file: {}",
+                    style("◉").dim(),
+                    style(cache::ScanCache::cache_path(&nm_path).display()).dim()
+                );
+                println!();
+            }
+        }
+
+        Commands::Health { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+            let report = health::check_health(&nm_path)?;
+            health::print_health_report(&report);
+        }
+
+        Commands::Treeshake { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+            let result = treeshake::analyze_treeshake(&nm_path)?;
+            treeshake::print_treeshake_results(&result);
+        }
+
+        Commands::Compress { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+            let result = compress::analyze_compression(&nm_path)?;
+            compress::print_compression_results(&result);
+        }
+
+        Commands::Policy { file, init, path } => {
+            if let Some(init_path) = init {
+                policy::create_example_policy(&init_path)?;
+                println!(
+                    "  {} Example policy created: {}",
+                    style("✓").green().bold(),
+                    style(init_path.display()).cyan()
+                );
+                return Ok(());
+            }
+
+            if let Some(policy_file) = file {
+                let target = std::fs::canonicalize(&path)?;
+                let nm_path = target.join("node_modules");
+                if !nm_path.exists() {
+                    println!(
+                        "  {} No node_modules found at {}",
+                        style("✗").red().bold(),
+                        style(target.display()).dim()
+                    );
+                    return Ok(());
+                }
+                let p = policy::load_policy(&policy_file)?;
+                let result = policy::enforce_policy(&p, &nm_path)?;
+                policy::print_policy_result(&result);
+
+                if !result.is_compliant {
+                    std::process::exit(1);
+                }
+            } else {
+                println!(
+                    "  {} Specify a policy file with {} or generate one with {}",
+                    style("ℹ").blue(),
+                    style("--file <FILE>").yellow(),
+                    style("--init <FILE>").yellow()
+                );
+            }
+        }
+
+        Commands::Plugins { list: _ } => {
+            let registry = plugin::PluginRegistry::with_builtins();
+            plugin::print_plugin_info(&registry);
+        }
+
+        Commands::Bench { all, timer } => {
+            if timer {
+                benchmark::print_timer_info();
+            }
+
+            if all || !timer {
+                println!(
+                    "  {} Running built-in benchmarks...\n",
+                    style("⚡").yellow().bold()
+                );
+
+                // CPU capabilities
+                let caps = simd::CpuCapabilities::detect();
+                println!(
+                    "  {} {}",
+                    style("CPU Features").cyan().bold(),
+                    style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+                );
+                println!(
+                    "  {} Architecture: {}",
+                    style("◉").cyan(),
+                    style(&caps.arch).white().bold()
+                );
+                println!(
+                    "  {} SIMD tier: {}",
+                    style("◉").cyan(),
+                    style(caps.tier_name()).green().bold()
+                );
+                println!();
+
+                let suite = benchmark::run_builtin_benchmarks();
+                suite.print_results();
+            }
+        }
+
+        Commands::Io {
+            path,
+            fs_info,
+            process,
+        } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+
+            if nm_path.exists() {
+                let stats = mmap::io_stats(&nm_path)?;
+                stats.print_info();
+            } else {
+                println!(
+                    "  {} No node_modules found. Analyzing project directory...",
+                    style("ℹ").blue()
+                );
+                let stats = mmap::io_stats(&target)?;
+                stats.print_info();
+            }
+
+            if fs_info {
+                let info = syscall::FsInfo::query(&target)?;
+                info.print_info();
+            }
+
+            if process {
+                let proc = syscall::ProcessStats::current();
+                proc.print_info();
+            }
+        }
+
+        Commands::Visualize {
+            path,
+            treemap,
+            sparklines,
+        } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+
+            // Build treemap data from scanning
+            let rules = rules::PruneRules::new();
+            let scan_result = scanner::scan_node_modules(&nm_path, &rules)?;
+
+            if treemap || (!treemap && !sparklines) {
+                // Group candidates by category for treemap
+                let mut by_cat: std::collections::HashMap<String, u64> =
+                    std::collections::HashMap::new();
+                for c in &scan_result.candidates {
+                    *by_cat.entry(c.category.label().to_string()).or_default() += c.size;
+                }
+
+                let children: Vec<visualizer::TreemapNode> = by_cat
+                    .iter()
+                    .map(|(name, size)| visualizer::TreemapNode::new(name, *size))
+                    .collect();
+
+                let root =
+                    visualizer::TreemapNode::with_children("node_modules (prunable)", children);
+
+                visualizer::render_treemap(&root, 60);
+            }
+
+            if sparklines {
+                // Show package-level size distribution as bar chart
+                let pkg_data = scanner::package_sizes(&nm_path);
+                let mut entries: Vec<visualizer::BarChartEntry> = pkg_data
+                    .iter()
+                    .take(20)
+                    .map(|(name, size)| visualizer::BarChartEntry {
+                        label: name.clone(),
+                        value: *size as f64,
+                        display_value: scanner::format_size(*size),
+                    })
+                    .collect();
+
+                // Sort by value descending
+                entries.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap());
+
+                visualizer::render_bar_chart("Top 20 Packages by Size", &entries, 40);
+            }
+        }
+
+        Commands::Audit { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+
+            let installed = network::scan_installed_packages(&nm_path)?;
+            println!(
+                "  {} Found {} installed packages",
+                style("◉").cyan(),
+                style(installed.len()).white().bold()
+            );
+            println!(
+                "  {} Note: Version auditing requires network access.",
+                style("ℹ").blue()
+            );
+            println!(
+                "  {} Run with {} for full audit.",
+                style("→").dim(),
+                style("--features network").yellow()
+            );
+
+            // Show local-only analysis
+            for (name, version) in installed.iter().take(25) {
+                println!("  {} {}@{}", style("·").dim(), name, style(version).dim());
+            }
+            if installed.len() > 25 {
+                println!(
+                    "  {} ...and {} more",
+                    style("·").dim(),
+                    installed.len() - 25
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Simple Ctrl+C handler using a closure.
+fn ctrlc_handler<F: Fn() + Send + 'static>(handler: F) {
+    // Use a simple approach — set up SIGINT handler
+    let _ = std::thread::spawn(move || {
+        // This is a placeholder; in production, use the `ctrlc` crate
+        // For now, the watcher checks the running flag periodically
+        let _ = handler;
+    });
+}
+
 /// Run in local mode — scan a single project's node_modules.
-fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool, config_path: Option<&Path>) -> Result<()> {
+fn run_local_mode(
+    project_path: &PathBuf,
+    force: bool,
+    yes: bool,
+    verbose: bool,
+    config_path: Option<&Path>,
+    profile: bool,
+    create_snapshot: bool,
+    export_path: Option<&Path>,
+) -> Result<()> {
+    let mut profiler = profiler::Profiler::new(profile);
+    let overall_start = Instant::now();
+
     // Find node_modules
     let nm_path = project_path.join("node_modules");
     if !nm_path.exists() {
@@ -113,7 +763,18 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
         return Ok(());
     }
 
+    // Detect recent install
+    if let Some(install_info) = watcher::detect_recent_install(project_path) {
+        println!(
+            "  {} Detected recent {} install ({}s ago)",
+            style("⚡").yellow(),
+            style(&install_info.package_manager).white().bold(),
+            install_info.age_seconds
+        );
+    }
+
     // Load configuration
+    profiler.start_span("Config Loading");
     let config = config::Config::load(config_path, project_path)?;
     if let Some(ref _cfg) = config {
         let source = if config_path.is_some() {
@@ -130,11 +791,14 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
             style(source).cyan()
         );
     }
+    profiler.end_span(0);
 
     // Phase 1: Discovery
+    profiler.start_span("Discovery (Scan)");
     let rules = rules::PruneRules::new_with_config(config);
-    let scan_result = scanner::scan_node_modules(&nm_path, &rules)
-        .context("Failed to scan node_modules")?;
+    let scan_result =
+        scanner::scan_node_modules(&nm_path, &rules).context("Failed to scan node_modules")?;
+    profiler.end_span(scan_result.total_files);
 
     display::print_discovery(&scan_result);
 
@@ -147,9 +811,10 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
     }
 
     // Phase 2: Simulation — verify runtime safety
-    // Note: Entry points are already whitelisted during scanning
+    profiler.start_span("Runtime Safety Check");
     let runtime_files = tracer::verify_runtime_safety(&nm_path, &scan_result.candidates)
         .context("Failed to verify runtime safety")?;
+    profiler.end_span(scan_result.candidates.len() as u64);
 
     // Filter out any candidates that are actually runtime-required
     let original_count = scan_result.candidates.len();
@@ -187,7 +852,11 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
             by_cat.entry(c.category).or_default().push(c);
         }
         for (cat, files) in &by_cat {
-            println!("\n  {} [{}]:", style("▸").cyan(), style(cat.label()).yellow());
+            println!(
+                "\n  {} [{}]:",
+                style("▸").cyan(),
+                style(cat.label()).yellow()
+            );
             for f in files.iter().take(20) {
                 println!(
                     "    {} {} ({})",
@@ -197,14 +866,17 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
                 );
             }
             if files.len() > 20 {
-                println!(
-                    "    {} ...and {} more",
-                    style("·").dim(),
-                    files.len() - 20
-                );
+                println!("    {} ...and {} more", style("·").dim(), files.len() - 20);
             }
         }
         println!();
+    }
+
+    // Export report if requested
+    if let Some(export_file) = export_path {
+        profiler.start_span("Report Export");
+        export_report(&filtered_result, export_file)?;
+        profiler.end_span(filtered_result.candidates.len() as u64);
     }
 
     // Phase 3 or 4
@@ -216,30 +888,33 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
                 style("Phase 3: Confirmation").cyan().bold(),
                 style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
             );
-            
+
             let savings = filtered_result.savings();
             let pct = if filtered_result.total_size > 0 {
                 (savings as f64 / filtered_result.total_size as f64 * 100.0) as u64
             } else {
                 0
             };
-            
+
             println!(
                 "  {} About to delete {} ({} files, {}% of node_modules)",
                 style("⚠").yellow().bold(),
                 style(scanner::format_size(savings)).yellow().bold(),
-                style(scanner::format_number(filtered_result.candidates.len() as u64)).yellow(),
+                style(scanner::format_number(
+                    filtered_result.candidates.len() as u64
+                ))
+                .yellow(),
                 style(pct).yellow()
             );
-            
+
             println!();
-            
+
             let confirmed = Confirm::new()
                 .with_prompt("  Do you want to proceed with deletion?")
                 .default(false)
                 .interact()
                 .unwrap_or(false);
-            
+
             if !confirmed {
                 println!();
                 println!(
@@ -254,11 +929,31 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
                 println!();
                 return Ok(());
             }
-            
+
             println!();
         }
-        
+
+        // Create snapshot before deletion if requested
+        if create_snapshot {
+            profiler.start_span("Snapshot Creation");
+            println!("  {} Creating snapshot...", style("📸").bold());
+            let manager = snapshot::SnapshotManager::new()?;
+            let snap_id = manager.create_snapshot(&filtered_result.candidates, &nm_path)?;
+            println!(
+                "  {} Snapshot created: {}",
+                style("✓").green().bold(),
+                style(&snap_id).cyan()
+            );
+            println!(
+                "  {} Restore with: {}",
+                style("→").dim(),
+                style(format!("jatin-lean snapshots --restore {}", snap_id)).yellow()
+            );
+            profiler.end_span(filtered_result.candidates.len() as u64);
+        }
+
         // Phase 4: Execute
+        profiler.start_span("Deletion");
         println!(
             "  {} {}",
             style("Phase 4: Execution").cyan().bold(),
@@ -269,11 +964,68 @@ fn run_local_mode(project_path: &PathBuf, force: bool, yes: bool, verbose: bool,
             .context("Failed to execute deletion")?;
 
         deleter::print_deletion_summary(&result);
+        profiler.end_span(result.deleted_count);
+
+        // Record in analytics
+        let scan_duration = overall_start.elapsed().as_millis() as u64;
+        if let Ok(mut db) = analytics::AnalyticsDB::load() {
+            db.record_scan(
+                &filtered_result,
+                true,
+                result.deleted_size,
+                result.deleted_count,
+                scan_duration,
+            );
+            let _ = db.save();
+        }
+
         println!();
     } else {
         // Phase 3: Dry run confirmation
         display::print_dry_run_confirmation(&filtered_result);
+
+        // Record in analytics (dry run)
+        let scan_duration = overall_start.elapsed().as_millis() as u64;
+        if let Ok(mut db) = analytics::AnalyticsDB::load() {
+            db.record_scan(&filtered_result, false, 0, 0, scan_duration);
+            let _ = db.save();
+        }
     }
+
+    // Print profiling report
+    if profile {
+        profiler::print_profiling_report(&profiler);
+    }
+
+    Ok(())
+}
+
+/// Export a scan report to a file.
+fn export_report(scan_result: &scanner::ScanResult, path: &Path) -> Result<()> {
+    let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("json");
+
+    let content = match extension {
+        "json" => analytics::generate_json_report(scan_result)?,
+        "csv" => analytics::generate_csv_report(scan_result),
+        "md" | "markdown" => analytics::generate_markdown_report(scan_result),
+        _ => {
+            println!(
+                "  {} Unknown export format: {}. Using JSON.",
+                style("⚠").yellow(),
+                extension
+            );
+            analytics::generate_json_report(scan_result)?
+        }
+    };
+
+    std::fs::write(path, &content)
+        .with_context(|| format!("Failed to write report: {}", path.display()))?;
+
+    println!(
+        "  {} Report exported to: {}",
+        style("✓").green().bold(),
+        style(path.display()).cyan()
+    );
 
     Ok(())
 }
