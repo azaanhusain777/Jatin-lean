@@ -47,6 +47,7 @@ mod bpf_verifier;
 mod pcie_bottleneck;
 mod hedging;
 mod mmap_ipc;
+mod static_plugins;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -602,6 +603,13 @@ enum Commands {
         /// Show FFI comparison table
         #[arg(long)]
         compare: bool,
+    },
+
+    /// Monomorphic (Static) Dispatch vs Dynamic Dispatch analysis
+    StaticDispatch {
+        /// Run dispatch benchmark
+        #[arg(long)]
+        bench: bool,
     },
 }
 
@@ -2226,6 +2234,25 @@ fn handle_subcommand(command: Commands) -> Result<()> {
                 println!("  {} Use {} for FFI comparison", style("→").dim(),
                     style("jatin-lean mmap-ipc --compare").yellow());
                 println!();
+            }
+        }
+
+        Commands::StaticDispatch { bench } => {
+            use static_plugins::*;
+            if bench {
+                let runner = MonomorphicPluginRunner::new();
+                let start = std::time::Instant::now();
+                for _ in 0..1_000_000 {
+                    runner.run_all_on_scan();
+                }
+                let elapsed = start.elapsed();
+                println!("  {} Executed 1,000,000 static plugin dispatches in {:.2} ms", 
+                    style("⚡").yellow(), elapsed.as_secs_f64() * 1000.0);
+                print_static_dispatch_report();
+            } else {
+                print_static_dispatch_report();
+                println!("  {} Use {} to run benchmark", style("→").dim(),
+                    style("jatin-lean static-dispatch --bench").yellow());
             }
         }
     }

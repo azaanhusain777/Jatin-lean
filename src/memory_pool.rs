@@ -186,6 +186,66 @@ impl<T: Copy + Default> TypedPool<T> {
 unsafe impl<T: Copy + Default> Sync for TypedPool<T> {}
 unsafe impl<T: Copy + Default> Send for TypedPool<T> {}
 
+// ─── Promotable Arena (Hybrid Arena-GC Model) ────────────────────────────────
+
+/// A promotable arena that supports "promoting" objects to the global heap.
+/// Inspired by Section 4.1: Hybrid Arena-GC Memory Model.
+/// Objects are allocated in the arena by default (O(1) bump-pointer).
+/// If an object escapes the request scope, it can be "promoted" to a 
+/// long-lived collection to avoid destruction when the arena is reset.
+pub struct PromotableArena<T: Clone + Default> {
+    arena: Arena,
+    /// Objects promoted to the "global GC heap" (represented here as a Vec)
+    promoted: std::sync::Mutex<Vec<T>>,
+    /// Fixed size of T for allocation logic
+    element_size: usize,
+}
+
+impl<T: Clone + Default> PromotableArena<T> {
+    pub fn new(capacity_bytes: usize) -> Self {
+        Self {
+            arena: Arena::new(capacity_bytes),
+            promoted: std::sync::Mutex::new(Vec::new()),
+            element_size: std::mem::size_of::<T>(),
+        }
+    }
+
+    /// Allocate a new object in the arena.
+    pub fn alloc(&self, value: T) -> Option<&mut T> {
+        let bytes = self.arena.alloc(self.element_size, std::mem::align_of::<T>())?;
+        let ptr = bytes.as_mut_ptr() as *mut T;
+        unsafe {
+            std::ptr::write(ptr, value);
+            Some(&mut *ptr)
+        }
+    }
+
+    /// "Promote" an object to the global heap to prevent its destruction.
+    /// This simulates the promote() DFS traversal described in the report.
+    pub fn promote(&self, value: T) {
+        let mut guard = self.promoted.lock().unwrap();
+        guard.push(value);
+    }
+
+    /// Reset the arena, destroying all arena-allocated objects,
+    /// but PRESERVING the promoted objects.
+    pub fn reset_arena_only(&self) {
+        self.arena.reset();
+    }
+
+    /// Clear everything, including promoted objects.
+    pub fn clear_all(&self) {
+        self.arena.reset();
+        let mut guard = self.promoted.lock().unwrap();
+        guard.clear();
+    }
+
+    pub fn stats(&self) -> (usize, usize) {
+        let promoted_count = self.promoted.lock().unwrap().len();
+        (self.arena.used(), promoted_count)
+    }
+}
+
 // ─── Scan Entry for Arena Allocation ─────────────────────────────────────────
 
 /// A fixed-size scan entry that can be allocated from a TypedPool.

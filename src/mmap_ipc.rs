@@ -16,21 +16,24 @@ const CACHE_LINE: usize = 64;
 /// Each index occupies its own 64-byte cache line.
 #[repr(C, align(64))]
 pub struct PaddedAtomicUsize {
-    pub value: AtomicUsize,
+    pub value: std::cell::UnsafeCell<usize>,
     _pad: [u8; 56], // 64 - 8 = 56 bytes padding
 }
 
 impl PaddedAtomicUsize {
     pub fn new(v: usize) -> Self {
-        Self { value: AtomicUsize::new(v), _pad: [0; 56] }
+        Self { value: std::cell::UnsafeCell::new(v), _pad: [0; 56] }
     }
 
-    pub fn load(&self, order: Ordering) -> usize {
-        self.value.load(order)
+    pub fn load(&self, _order: Ordering) -> usize {
+        // Use volatile read to ensure the compiler doesn't optimize away the access
+        // as the value may be changed concurrently by another process (e.g. Node.js).
+        unsafe { std::ptr::read_volatile(self.value.get()) }
     }
 
-    pub fn store(&self, v: usize, order: Ordering) {
-        self.value.store(v, order);
+    pub fn store(&self, v: usize, _order: Ordering) {
+        // Use volatile write to ensure the update is visible immediately to other processes.
+        unsafe { std::ptr::write_volatile(self.value.get(), v) };
     }
 }
 
