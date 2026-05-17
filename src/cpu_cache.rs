@@ -8,7 +8,6 @@
 //! - TLB optimization via huge page awareness
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
 
 // ─── Cache Hierarchy Model ───────────────────────────────────────────────────
 
