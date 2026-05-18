@@ -1,6 +1,6 @@
 {
   "name": "jatin-lean",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Enterprise-grade high-performance CLI utility to prune node_modules — featuring io_uring I/O, CPU cache prefetching, hardware-coherent unified memory routing, and zero-copy IPC.",
   "main": "index.js",
   "types": "index.d.ts",
