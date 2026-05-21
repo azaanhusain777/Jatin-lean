@@ -4,7 +4,6 @@
 //! limits, loop unrolling enforcement, and DPI (Deep Packet Inspection)
 //! evasion detection. Also models sk_buff elimination savings.
 
-
 /// Maximum eBPF instruction count allowed by the verifier.
 pub const BPF_MAX_INSNS: usize = 1_000_000;
 /// Maximum nested calls depth.

@@ -404,10 +404,7 @@ pub fn print_timer_info() {
 
     #[cfg(target_arch = "x86_64")]
     {
-        println!(
-            "  {} Timer source: RDTSC / clock_gettime",
-            style("◉").dim()
-        );
+        println!("  {} Timer source: RDTSC / clock_gettime", style("◉").dim());
     }
 
     #[cfg(target_arch = "aarch64")]

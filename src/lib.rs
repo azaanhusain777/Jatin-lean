@@ -3,7 +3,15 @@
 //! This module re-exports all public APIs so that integration tests
 //! and downstream Rust code can use jatin-lean as a library.
 
-#![allow(clippy::too_many_arguments, clippy::mut_from_ref, clippy::unnecessary_sort_by, clippy::manual_checked_ops, clippy::new_without_default, clippy::doc_lazy_continuation, clippy::if_same_then_else)]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::mut_from_ref,
+    clippy::unnecessary_sort_by,
+    clippy::manual_checked_ops,
+    clippy::new_without_default,
+    clippy::doc_lazy_continuation,
+    clippy::if_same_then_else
+)]
 #![allow(dead_code, unused_imports, unused_variables, unused_mut)]
 
 pub mod adaptive_engine;

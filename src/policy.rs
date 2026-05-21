@@ -27,8 +27,7 @@ pub struct Policy {
 }
 
 /// Collection of policy rules.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PolicyRules {
     /// Maximum total size of node_modules (bytes)
     #[serde(default)]
@@ -67,7 +66,6 @@ pub struct PolicyRules {
     #[serde(default)]
     pub violation_message: Option<String>,
 }
-
 
 /// A policy violation found during enforcement.
 #[derive(Debug, Clone)]

@@ -7,7 +7,6 @@
 //! - CPU governor and frequency scaling control
 //! - Interrupt affinity (IRQ pinning) for NIC queues
 
-
 // ─── NUMA Topology ───────────────────────────────────────────────────────────
 
 /// NUMA node description.

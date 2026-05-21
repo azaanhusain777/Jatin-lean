@@ -119,9 +119,10 @@ impl Optimization {
                 }
                 // Validate value is numeric for numeric parameters
                 if (key.contains("max") || key.contains("size") || key.contains("timeout"))
-                    && value.parse::<i64>().is_err() {
-                        return Err(anyhow!("Invalid numeric value for {}: {}", key, value));
-                    }
+                    && value.parse::<i64>().is_err()
+                {
+                    return Err(anyhow!("Invalid numeric value for {}: {}", key, value));
+                }
                 Ok(())
             }
             Optimization::IoScheduler(device, scheduler) => {

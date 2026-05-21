@@ -4,7 +4,6 @@
 //! paradigms (pageable, pinned, unified, HW-coherent), prefetch
 //! scheduling, and VRAM layer offloading for LLM inference.
 
-
 // ─── PCIe Specifications ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

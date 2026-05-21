@@ -710,6 +710,7 @@ name = "jatin-lean"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "bumpalo",
  "chrono",
  "clap",
  "comfy-table",

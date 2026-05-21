@@ -3,6 +3,7 @@
 //! Discovers node_modules directories and walks them in parallel,
 //! collecting file metadata for the pruning engine.
 
+use crate::allocator::ScanArena;
 use crate::profiler::{PackageTiming, Profiler};
 use crate::rules::{FileCategory, PruneRules};
 use anyhow::{Context, Result};
@@ -98,9 +99,10 @@ pub fn find_node_modules(root: &Path, max_depth: usize) -> Vec<PathBuf> {
 
     for entry in walker.flatten() {
         if entry.file_type().is_some_and(|ft| ft.is_dir())
-            && entry.file_name().to_str() == Some("node_modules") {
-                results.push(entry.into_path());
-            }
+            && entry.file_name().to_str() == Some("node_modules")
+        {
+            results.push(entry.into_path());
+        }
     }
 
     results
@@ -185,9 +187,10 @@ pub fn scan_node_modules(
 
     // Process packages in parallel
     packages.par_iter().for_each(|pkg_path| {
+        let arena = ScanArena::new();
         let pkg_start = Instant::now();
         let pkg_name = extract_package_name(pkg_path, node_modules_path);
-
+        let pkg_name_ref = arena.alloc_str(&pkg_name);
         // Parse package.json for entry points
         let pkg_json_path = pkg_path.join("package.json");
         if pkg_json_path.exists() {
@@ -250,7 +253,7 @@ pub fn scan_node_modules(
                             path: file_path,
                             size: file_size,
                             category,
-                            package_name: pkg_name.clone(),
+                            package_name: pkg_name_ref.to_string(),
                         };
                         candidates.lock().unwrap().push(candidate);
                     }

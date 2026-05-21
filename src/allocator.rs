@@ -6,6 +6,8 @@
 //!   - Memory-efficient path storage with deduplication
 //!   - Slab allocator for fixed-size scan objects
 
+use crate::rules::FileCategory;
+use bumpalo::Bump;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -18,6 +20,20 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// Common strings in node_modules (package names, extensions, categories)
 /// are repeated thousands of times. Interning reduces memory pressure
 /// from O(n * avg_len) to O(unique * avg_len).
+pub struct ScanArena {
+    bump: Bump,
+}
+
+impl ScanArena {
+    pub fn new() -> Self {
+        Self { bump: Bump::new() }
+    }
+
+    pub fn alloc_str<'a>(&'a self, s: &str) -> &'a str {
+        self.bump.alloc_str(s)
+    }
+}
+
 pub struct StringInterner {
     strings: Vec<String>,
     lookup: HashMap<String, u32>,
@@ -534,6 +550,12 @@ mod tests {
         }
 
         assert_eq!(slab.get(&r), Some(&"hello world".to_string()));
+    }
+    pub struct ArenaPruneCandidate<'a> {
+        pub path: &'a str,
+        pub size: u64,
+        pub category: FileCategory,
+        pub package_name: &'a str,
     }
 
     #[test]

@@ -336,8 +336,7 @@ pub struct PacketRule {
 }
 
 /// Criteria for matching packets.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct MatchCriteria {
     pub src_ip: Option<IpAddr>,
     pub dst_ip: Option<IpAddr>,
@@ -346,7 +345,6 @@ pub struct MatchCriteria {
     pub protocol: Option<u8>, // 6=TCP, 17=UDP
     pub ether_type: Option<u16>,
 }
-
 
 impl MatchCriteria {
     /// Check if a packet (represented as parsed fields) matches.

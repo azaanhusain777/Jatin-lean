@@ -183,49 +183,43 @@ impl Plugin for NativeModulePlugin {
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             // Native build artifacts
-            if (name == "build" || name == "Release" || name == "Debug")
-                && path.is_dir() {
-                    // Check if parent has binding.gyp
-                    let parent = path.parent().unwrap_or(path);
-                    if parent.join("binding.gyp").exists() || parent.join("CMakeLists.txt").exists()
-                    {
-                        // These are build artifacts — mark source files for pruning
-                        let build_src = parent.join("src");
-                        if build_src.is_dir() {
-                            for file_entry in ignore::WalkBuilder::new(&build_src)
-                                .hidden(false)
-                                .git_ignore(false)
-                                .build()
-                                .flatten()
-                            {
-                                if file_entry.file_type().is_some_and(|ft| ft.is_file()) {
-                                    let file_path = file_entry.path().to_path_buf();
-                                    let ext = file_path
-                                        .extension()
-                                        .and_then(|e| e.to_str())
-                                        .unwrap_or("");
-                                    if matches!(
-                                        ext,
-                                        "c" | "cc" | "cpp" | "h" | "hpp" | "gyp" | "gypi"
-                                    ) {
-                                        if let Ok(meta) = std::fs::metadata(&file_path) {
-                                            candidates.push(PruneCandidate {
-                                                path: file_path,
-                                                size: meta.len(),
-                                                category: FileCategory::BuildArtifact,
-                                                package_name: parent
-                                                    .file_name()
-                                                    .and_then(|n| n.to_str())
-                                                    .unwrap_or("unknown")
-                                                    .to_string(),
-                                            });
-                                        }
+            if (name == "build" || name == "Release" || name == "Debug") && path.is_dir() {
+                // Check if parent has binding.gyp
+                let parent = path.parent().unwrap_or(path);
+                if parent.join("binding.gyp").exists() || parent.join("CMakeLists.txt").exists() {
+                    // These are build artifacts — mark source files for pruning
+                    let build_src = parent.join("src");
+                    if build_src.is_dir() {
+                        for file_entry in ignore::WalkBuilder::new(&build_src)
+                            .hidden(false)
+                            .git_ignore(false)
+                            .build()
+                            .flatten()
+                        {
+                            if file_entry.file_type().is_some_and(|ft| ft.is_file()) {
+                                let file_path = file_entry.path().to_path_buf();
+                                let ext =
+                                    file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                                if matches!(ext, "c" | "cc" | "cpp" | "h" | "hpp" | "gyp" | "gypi")
+                                {
+                                    if let Ok(meta) = std::fs::metadata(&file_path) {
+                                        candidates.push(PruneCandidate {
+                                            path: file_path,
+                                            size: meta.len(),
+                                            category: FileCategory::BuildArtifact,
+                                            package_name: parent
+                                                .file_name()
+                                                .and_then(|n| n.to_str())
+                                                .unwrap_or("unknown")
+                                                .to_string(),
+                                        });
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
         }
         Ok(())
     }

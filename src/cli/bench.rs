@@ -774,19 +774,25 @@ pub fn handle_command(command: BenchCommands, ctx: &OutputContext) -> Result<()>
                 cache.store("/user/1", fields, std::time::Duration::from_secs(60));
 
                 if !ctx.json {
-                    if let FragmentResult::FullHit(f) = cache.fetch_fragment("/user/1", &["name", "email"]) {
+                    if let FragmentResult::FullHit(f) =
+                        cache.fetch_fragment("/user/1", &["name", "email"])
+                    {
                         println!(
                             "    Client A [name,email]: {} ← from cache",
                             style(serde_json::to_string(&f).unwrap()).green()
                         );
                     }
-                    if let FragmentResult::FullHit(f) = cache.fetch_fragment("/user/1", &["role", "projects"]) {
+                    if let FragmentResult::FullHit(f) =
+                        cache.fetch_fragment("/user/1", &["role", "projects"])
+                    {
                         println!(
                             "    Client B [role,projects]: {} ← from cache",
                             style(serde_json::to_string(&f).unwrap()).green()
                         );
                     }
-                    if let FragmentResult::PartialHit { found, missing } = cache.fetch_fragment("/user/1", &["name", "phone"]) {
+                    if let FragmentResult::PartialHit { found, missing } =
+                        cache.fetch_fragment("/user/1", &["name", "phone"])
+                    {
                         println!(
                             "    Client C [name,phone]: found {} / missing {} ← partial",
                             style(serde_json::to_string(&found).unwrap()).green(),

@@ -271,8 +271,7 @@ impl<T: Clone + Default> PromotableArena<T> {
 // ─── Scan Entry for Arena Allocation ─────────────────────────────────────────
 
 /// A fixed-size scan entry that can be allocated from a TypedPool.
-#[derive(Debug, Clone, Copy)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ScanEntry {
     /// Path hash (FNV-1a) instead of String to avoid heap allocation
     pub path_hash: u64,
@@ -286,7 +285,6 @@ pub struct ScanEntry {
     pub depth: u16,
     _pad: [u8; 5],
 }
-
 
 impl ScanEntry {
     /// FNV-1a hash of a path string.
