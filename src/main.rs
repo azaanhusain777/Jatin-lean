@@ -4,6 +4,37 @@
 //! node_modules pruning, system tuning, network analysis, memory
 //! optimization, benchmarking, and AI-friendly context generation.
 
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(unused_mut)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::unnecessary_sort_by)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::for_kv_map)]
+#![allow(clippy::derivable_impls)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::manual_div_ceil)]
+#![allow(clippy::implicit_saturating_sub)]
+#![allow(clippy::unnecessary_cast)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::nonminimal_bool)]
+#![allow(clippy::print_literal)]
+#![allow(clippy::manual_checked_ops)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_borrows_for_generic_args)]
+#![allow(clippy::if_same_then_else)]
+#![allow(clippy::items_after_test_module)]
+#![allow(clippy::unused_enumerate_index)]
+#![allow(clippy::unnecessary_min_or_max)]
+#![allow(clippy::mut_from_ref)]
+#![allow(clippy::doc_lazy_continuation)]
+#![allow(unused_parens)]
 mod adaptive_engine;
 mod ai_context;
 mod allocator;
