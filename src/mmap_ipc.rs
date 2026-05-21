@@ -399,7 +399,7 @@ mod tests {
     fn test_batch_read() {
         let ring = MmapRingBuffer::new(16, 32);
         for i in 0..8 {
-            ring.write(&vec![i as u8; 32]);
+            ring.write(&[i as u8; 32]);
         }
         let batch = ring.read_batch(4);
         assert_eq!(batch.len(), 4);

@@ -457,7 +457,8 @@ mod tests {
     #[test]
     fn test_string_interner_preseeded() {
         let interner = StringInterner::new();
-        assert!(interner.len() > 0); // Pre-seeded common strings
+        // assert!(interner.len() > 0);
+        assert!(!interner.is_empty()); // Pre-seeded common strings
     }
 
     #[test]

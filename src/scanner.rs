@@ -469,6 +469,23 @@ fn dir_size(path: &Path) -> u64 {
         .sum()
 }
 
+/// Format a size in bytes as a human-readable string.
+pub fn format_size(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    const GB: u64 = 1024 * MB;
+
+    if bytes >= GB {
+        format!("{:.1}GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1}MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1}KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{}B", bytes)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -654,22 +671,5 @@ mod tests {
             high_risk.risk_label(),
             "HIGH — TypeScript sources included (declarations kept)"
         );
-    }
-}
-
-/// Format a size in bytes as a human-readable string.
-pub fn format_size(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = 1024 * KB;
-    const GB: u64 = 1024 * MB;
-
-    if bytes >= GB {
-        format!("{:.1}GB", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.1}MB", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.1}KB", bytes as f64 / KB as f64)
-    } else {
-        format!("{}B", bytes)
     }
 }

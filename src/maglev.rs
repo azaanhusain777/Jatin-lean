@@ -263,7 +263,7 @@ mod tests {
         let ring = MaglevHashRing::new(backends, 997);
         let dist = ring.distribution();
         assert_eq!(dist.len(), 3);
-        for (_, count) in &dist {
+        for count in dist.values() {
             assert!(*count > 200); // roughly 997/3 ≈ 332
         }
     }
