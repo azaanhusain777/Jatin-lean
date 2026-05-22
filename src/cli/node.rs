@@ -5,6 +5,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use console::style;
 use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Subcommand, Debug)]
 pub enum NodeCommands {
@@ -149,6 +150,9 @@ pub enum NodeCommands {
         #[arg(long)]
         sparklines: bool,
     },
+
+    /// Print Node.js binding and build environment diagnostics
+    Version,
 }
 
 pub fn handle_command(command: NodeCommands, ctx: &OutputContext) -> Result<()> {
@@ -635,5 +639,66 @@ pub fn handle_command(command: NodeCommands, ctx: &OutputContext) -> Result<()> 
             }
             Ok(())
         }
+        NodeCommands::Version => {
+            let target_triple = option_env!("JATIN_LEAN_TARGET")
+                .unwrap_or(current_target_triple())
+                .to_string();
+            let node_version = detect_node_version();
+            let rustc_version = option_env!("JATIN_LEAN_RUSTC_VERSION")
+                .unwrap_or("unknown")
+                .to_string();
+
+            if ctx.json {
+                crate::output::output_result(
+                    "node version",
+                    &serde_json::json!({
+                        "target_triple": target_triple,
+                        "napi_bindings_version": env!("CARGO_PKG_VERSION"),
+                        "node_version": node_version,
+                        "rustc_version": rustc_version,
+                    }),
+                    ctx,
+                )?;
+            } else {
+                println!("{}", style("Node diagnostics").cyan().bold());
+                println!("  target triple: {}", style(target_triple).white().bold());
+                println!(
+                    "  N-API bindings version: {}",
+                    style(env!("CARGO_PKG_VERSION")).white().bold()
+                );
+                println!("  Node.js version: {}", style(node_version).white().bold());
+                println!("  Rust compiler: {}", style(rustc_version).white().bold());
+            }
+
+            Ok(())
+        }
     }
+}
+
+fn current_target_triple() -> &'static str {
+    match (
+        std::env::consts::ARCH,
+        std::env::consts::OS,
+        std::env::consts::FAMILY,
+    ) {
+        ("x86_64", "linux", _) => "x86_64-unknown-linux-gnu",
+        ("aarch64", "linux", _) => "aarch64-unknown-linux-gnu",
+        ("x86_64", "macos", _) => "x86_64-apple-darwin",
+        ("aarch64", "macos", _) => "aarch64-apple-darwin",
+        ("x86_64", "windows", _) => "x86_64-pc-windows-msvc",
+        ("aarch64", "windows", _) => "aarch64-pc-windows-msvc",
+        _ => "unknown",
+    }
+}
+
+fn detect_node_version() -> String {
+    Command::new("node")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|version| version.trim().to_string())
+        .filter(|version| !version.is_empty())
+        .unwrap_or_else(|| "unavailable".to_string())
 }

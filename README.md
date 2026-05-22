@@ -162,6 +162,7 @@ jatin-lean node analyze       # Project analysis
 jatin-lean node watch         # Watch for changes
 jatin-lean node policy        # Enforce policies
 jatin-lean node visualize     # Visual analysis
+jatin-lean node version       # Node/N-API build diagnostics
 ```
 
 ### 🖥️ System Optimization (`system`)
